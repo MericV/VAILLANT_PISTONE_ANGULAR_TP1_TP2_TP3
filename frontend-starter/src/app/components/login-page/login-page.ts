@@ -13,6 +13,7 @@ export class LoginPageComponent {
   private readonly router = inject(Router);
 
   readonly error = signal('');
+  readonly loading = signal(false);
   readonly form = new FormGroup({
     email: new FormControl('demo@example.com', {
       nonNullable: true,
@@ -25,14 +26,21 @@ export class LoginPageComponent {
   });
 
   submit(): void {
+    if (this.form.invalid || this.loading()) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    this.error.set('');
+    this.loading.set(true);
     const values = this.form.getRawValue();
     this.auth.login(values.email, values.password).subscribe({
       next: () => {
-        console.debug('[LoginPage] Connexion réussie');
+        this.loading.set(false);
         void this.router.navigateByUrl('/tracks');
       },
       error: (error: { error?: { message?: string } }) => {
-        console.error('[LoginPage] Échec de connexion', error);
+        this.loading.set(false);
         this.error.set(error.error?.message ?? 'Erreur de connexion');
       },
     });

@@ -14,7 +14,10 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | GET | `/tracks?page=1&limit=5` | JWT | `Page<Track>` |
 | POST | `/tracks` | multipart : `audio`, `title` | `201 Track` |
 | GET | `/tracks/:id/audio` | JWT | flux audio |
+| PATCH | `/tracks/:id` | `{title?, description?}` + JWT | `200 Track` |
 | DELETE | `/tracks/:id` | JWT | `204` (bonus) |
+
+`Track` contient `id`, `ownerId`, `title`, `description` (chaîne vide par défaut), `originalName`, `mimeType`, `size` et `createdAt`. `PATCH` accepte un titre non vide (120 caractères max) et une description (500 max) ; au moins un des deux est requis.
 
 `Page<Track>` contient `items`, `page`, `limit`, `total` et `pages`. Formats acceptés : MP3, WAV, OGG et M4A, 25 Mo maximum.
 

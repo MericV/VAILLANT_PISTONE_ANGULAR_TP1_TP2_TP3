@@ -1,6 +1,6 @@
 # Instructions for coding assistants
 
-This is an Angular 22 standalone application. Read `best-practices.md` before changing code.
+This is an Angular 22 standalone application. Read `best-practices.md` and `../DOCTRINE.md` (workflow, architecture, security, testing rules, definition of done) before changing code.
 
 - Keep one class per TypeScript file and one component per component folder.
 - Keep each component's TypeScript, HTML, and CSS files together.

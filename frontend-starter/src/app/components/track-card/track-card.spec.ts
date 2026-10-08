@@ -1,0 +1,119 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { TrackCardComponent } from './track-card';
+import { Track } from '../../shared/models/track.model';
+
+const track: Track = {
+  id: 'track-1',
+  title: 'Blues en La',
+  description: 'Shuffle lent',
+  originalName: 'blues.mp3',
+  mimeType: 'audio/mpeg',
+  size: 3 * 1024 * 1024,
+  createdAt: '2026-09-24T08:00:00.000Z',
+};
+
+describe('TrackCardComponent', () => {
+  let fixture: ComponentFixture<TrackCardComponent>;
+  const host = () => fixture.nativeElement as HTMLElement;
+  const button = (label: string) =>
+    host().querySelector(`button[aria-label="${label} ${track.title}"]`) as HTMLButtonElement;
+
+  beforeEach(async () => {
+    TestBed.configureTestingModule({ imports: [TrackCardComponent], providers: [provideRouter([])] });
+    fixture = TestBed.createComponent(TrackCardComponent);
+    fixture.componentRef.setInput('track', track);
+    await fixture.whenStable();
+  });
+
+  it('affiche les métadonnées lisibles de la piste', () => {
+    const content = host().textContent ?? '';
+    expect(content).toContain('Blues en La');
+    expect(content).toContain('blues.mp3');
+    expect(content).toContain('MP3');
+    expect(content).toContain('3.0 Mo');
+  });
+
+  it('propose un lien Jouer vers la page de jeu de la piste', () => {
+    const link = host().querySelector('a.game-link') as HTMLAnchorElement;
+
+    expect(link.getAttribute('href')).toBe('/game/track-1');
+    expect(link.getAttribute('aria-label')).toBe('Jouer à Blues en La');
+  });
+
+  it('émet play et remove avec la piste', () => {
+    const play = vi.fn();
+    const remove = vi.fn();
+    fixture.componentInstance.play.subscribe(play);
+    fixture.componentInstance.remove.subscribe(remove);
+
+    button('Lire').click();
+    button('Supprimer').click();
+
+    expect(play).toHaveBeenCalledWith(track);
+    expect(remove).toHaveBeenCalledWith(track);
+  });
+
+  it('désactive les actions pendant la suppression', async () => {
+    fixture.componentRef.setInput('deleting', true);
+    await fixture.whenStable();
+
+    expect(button('Supprimer').disabled).toBe(true);
+    expect(button('Supprimer').textContent).toContain('Suppression…');
+    expect(button('Lire').disabled).toBe(true);
+  });
+
+  describe('modification', () => {
+    const field = (name: string) => host().querySelector(`[formControlName="${name}"]`) as HTMLInputElement;
+
+    it('affiche la description et demande l’ouverture du formulaire pré-rempli', async () => {
+      const edit = vi.fn();
+      fixture.componentInstance.edit.subscribe(edit);
+      expect(host().textContent).toContain('Shuffle lent');
+
+      button('Modifier').click();
+      fixture.componentRef.setInput('editing', true);
+      await fixture.whenStable();
+
+      expect(edit).toHaveBeenCalledWith(track);
+      expect(field('title').value).toBe('Blues en La');
+      expect(field('description').value).toBe('Shuffle lent');
+    });
+
+    it('émet save avec les valeurs nettoyées', async () => {
+      const save = vi.fn();
+      fixture.componentInstance.save.subscribe(save);
+      fixture.componentInstance.startEdit();
+      fixture.componentRef.setInput('editing', true);
+      await fixture.whenStable();
+
+      fixture.componentInstance.form.setValue({ title: '  Blues lent ', description: ' 80 bpm ' });
+      (host().querySelector('button[type="submit"]') as HTMLButtonElement).click();
+
+      expect(save).toHaveBeenCalledWith({ track, changes: { title: 'Blues lent', description: '80 bpm' } });
+    });
+
+    it('refuse un titre vide sans rien émettre', async () => {
+      const save = vi.fn();
+      fixture.componentInstance.save.subscribe(save);
+      fixture.componentRef.setInput('editing', true);
+      await fixture.whenStable();
+
+      fixture.componentInstance.form.setValue({ title: '   ', description: '' });
+      (host().querySelector('button[type="submit"]') as HTMLButtonElement).click();
+      await fixture.whenStable();
+
+      expect(save).not.toHaveBeenCalled();
+      expect(host().textContent).toContain('Le titre est obligatoire.');
+    });
+
+    it('désactive le formulaire pendant l’enregistrement', async () => {
+      fixture.componentRef.setInput('editing', true);
+      fixture.componentRef.setInput('saving', true);
+      await fixture.whenStable();
+
+      expect((host().querySelector('fieldset') as HTMLFieldSetElement).disabled).toBe(true);
+      expect(host().textContent).toContain('Enregistrement…');
+    });
+  });
+});

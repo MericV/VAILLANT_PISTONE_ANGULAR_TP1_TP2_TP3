@@ -1,35 +1,136 @@
 :root {
-  font-family: Inter, system-ui, sans-serif;
-  color: #17312a;
-  background: #f3f7f5;
+  /* Couleurs de l'application : les composants n'utilisent que ces variables. */
+  --fg: #1b1f2a;
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-alt: #eef1f4;
+  --border: #dde2e8;
+  --input-border: #b9c1cc;
+  --muted: #5a6474;
+  --accent: #1d6f5a;
+  --link: #1d6f5a;
+  --ink: #1b1f2a;        /* fond du bandeau des cordes */
+  --brass: #8c6210;      /* laiton des frettes : piste en lecture */
+  --error: #b3261e;
+  --success: #1d6b3a;
+  --radius: 10px;
+  --radius-small: 6px;
+
+  /* color-scheme : champs, barres de défilement et lecteur <audio> natifs suivent le thème. */
+  color-scheme: light dark;
+  font-family: Archivo, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+  /* Jetons Material 3 surchargés pour reprendre la charte de l'application. */
+  --mat-sys-primary: var(--accent);
+  --mat-sys-on-primary: #ffffff;
+  --mat-sys-surface: var(--surface);
+  --mat-sys-on-surface: var(--fg);
+  --mat-sys-on-surface-variant: var(--muted);
+  --mat-sys-inverse-surface: #1b1f2a;
+  --mat-sys-inverse-on-surface: #ffffff;
+  --mat-sys-inverse-primary: #9fe0c9;
+  --mat-sys-body-large-font: Archivo, system-ui, sans-serif;
+  --mat-sys-body-medium-font: Archivo, system-ui, sans-serif;
+  --mat-sys-body-small-font: Archivo, system-ui, sans-serif;
+  --mat-sys-label-large-font: Archivo, system-ui, sans-serif;
+  --mat-sys-label-medium-font: Archivo, system-ui, sans-serif;
+}
+
+/* Mode sombre : suit la préférence du système (Réglages macOS → Apparence). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e6e9ef;
+    --bg: #12151c;
+    --surface: #1a1f29;
+    --surface-alt: #222836;
+    --border: #2c3342;
+    --input-border: #485164;
+    --muted: #a2abba;
+    --link: #6fd1b0;
+    --ink: #1a1f29;
+    --brass: #d9a441;
+    --error: #ff8a80;
+    --success: #7ddc9f;
+    --mat-sys-inverse-surface: #e6e9ef;
+    --mat-sys-inverse-on-surface: #1b1f2a;
+    --mat-sys-inverse-primary: #1d6f5a;
+  }
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; }
-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 5vw; color: white; background: #123d32; }
-header small { opacity: 0.7; }
-nav { display: flex; gap: 1rem; }
-a { color: #1d755e; }
-header a { color: white; }
-main { max-width: 1050px; margin: 2rem auto; padding: 0 1rem; }
-.hero { margin-bottom: 1rem; padding: 2rem; color: white; background: linear-gradient(120deg, #123d32, #276c57); border-radius: 20px; }
-.eyebrow { letter-spacing: 0.15em; font-size: 0.75rem; }
-.grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; }
-.card { padding: 1.3rem; background: white; border-radius: 16px; box-shadow: 0 8px 25px #17312a14; }
-.card form, label { display: grid; gap: 0.4rem; }
-label { margin: 0.8rem 0; }
-input { padding: 0.75rem; border: 1px solid #b8cbc5; border-radius: 8px; }
-button { padding: 0.7rem 1rem; color: white; background: #1d755e; border: 0; border-radius: 8px; cursor: pointer; }
-button:disabled { opacity: 0.45; }
-.row, .track, .pager { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.track { padding: 0.8rem 0; border-bottom: 1px solid #e1ebe7; }
-.track small { display: block; color: #61756f; }
-.pager { margin: 1rem 0; }
-audio { width: 100%; }
-.error { color: #a33; }
+/* overflow-x: clip : une section pleine largeur (100vw inclut la barre de défilement) ne crée pas de scroll horizontal. */
+body { margin: 0; overflow-x: clip; }
+main { max-width: 1120px; margin: 0 auto; padding: 2rem 1rem 3rem; }
 
-@media (max-width: 720px) {
-  header, .grid { display: block; }
-  nav { margin-top: 1rem; }
-  .grid .card { margin-bottom: 1rem; }
+h1, h2, h3 { margin: 0; line-height: 1.15; }
+/* Titres en Archivo élargi : la typographie porte l'identité du site. */
+h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; font-stretch: 118%; letter-spacing: -0.01em; }
+h2 { font-size: 1.25rem; font-weight: 750; font-stretch: 110%; }
+h3 { font-size: 1rem; font-weight: 650; }
+p { margin: 0.5rem 0; }
+a { color: var(--link); }
+
+/* Panneau : formulaires de connexion, inscription, profil, import. */
+.card { padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.card h1 { font-size: 2rem; margin-bottom: 1rem; }
+/* En-tête de panneau : titre à gauche, action secondaire à droite. */
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.panel-head h1 { margin: 0; }
+.card form, label { display: grid; gap: 0.35rem; }
+label { margin: 0.9rem 0; font-weight: 550; }
+
+input, textarea {
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  font-weight: 400;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-small);
+}
+input:disabled, textarea:disabled { opacity: 0.55; }
+textarea { resize: vertical; }
+input[type='file'] { width: 100%; min-width: 0; padding: 0.4rem; }
+input[type='file']::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.45rem 0.8rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface-alt);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+/* :not([class*='mat-']) : ne pas écraser les boutons internes d'Angular Material (Paginator, SnackBar). */
+button:not([class*='mat-']) {
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-weight: 650;
+  color: #ffffff;
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+button:not([class*='mat-']):hover:not(:disabled) { filter: brightness(1.1); }
+button:not([class*='mat-']):disabled { opacity: 0.45; cursor: not-allowed; }
+/* Variante discrète pour les actions secondaires (Actualiser, Déconnexion, Supprimer). */
+button.ghost:not([class*='mat-']) { color: var(--fg); background: transparent; border-color: var(--input-border); }
+button.ghost:not([class*='mat-']):hover:not(:disabled) { filter: none; background: var(--surface-alt); }
+button:not([class*='mat-']):focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+audio { width: 100%; }
+.error { color: var(--error); }
+.success { color: var(--success); }
+.mat-mdc-paginator { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

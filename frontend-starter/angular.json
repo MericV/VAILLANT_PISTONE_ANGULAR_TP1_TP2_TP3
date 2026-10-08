@@ -18,8 +18,15 @@
                             }
                         ],
                         "styles": [
+                            "@angular/material/prebuilt-themes/azure-blue.css",
                             "src/styles.css"
                         ]
+                    },
+                    "configurations": {
+                        "development": {
+                            "optimization": false,
+                            "sourceMap": true
+                        }
                     }
                 },
                 "serve": {
@@ -32,9 +39,15 @@
                     "defaultConfiguration": "development"
                 },
                 "test": {
-                    "builder": "@angular/build:unit-test"
+                    "builder": "@angular/build:unit-test",
+                    "options": {
+                        "tsConfig": "tsconfig.spec.json"
+                    }
                 }
             }
         }
+    },
+    "cli": {
+      "analytics": false
     }
 }

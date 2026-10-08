@@ -1,45 +1,86 @@
-<section>
-  <div class="hero">
-    <p class="eyebrow">MA BIBLIOTHÈQUE</p>
+<section class="library">
+  @if (currentTrack(); as track) {
+    <div class="transport" role="region" aria-label="Lecteur audio" aria-live="polite">
+      <p class="now">En cours : <b>{{ track.title }}</b></p>
+      <audio
+        [src]="audioUrl()"
+        controls
+        autoplay
+        (error)="onAudioError()"
+      ></audio>
+    </div>
+  }
+  <header class="artists-hero">
+    <!-- Décor : masqué aux lecteurs d'écran. -->
+    <ul class="artists" aria-hidden="true">
+      @for (artist of artists; track artist.slug) {
+        <li
+          [style.--panel]="artist.background ?? photoColors()[artist.slug]?.background ?? artist.color"
+          [style.--label]="artist.background ? null : photoColors()[artist.slug]?.label"
+          [style.--photo]="'url(artistes/' + artist.slug + '.png)'"
+        >
+          <span>{{ artist.name }}</span>
+        </li>
+      }
+    </ul>
     <h1>Backing tracks</h1>
-    <p>Importez, retrouvez et écoutez vos morceaux de travail.</p>
-  </div>
+    <p>Importez vos morceaux de travail et jouez par-dessus.</p>
+  </header>
 
-  <div class="grid">
-    <article class="card">
-      <h2>Importer</h2>
-      <label>Titre<input [formControl]="title" /></label>
-      <label>Fichier audio<input type="file" accept="audio/*" (change)="choose($event)" /></label>
-      <button type="button" (click)="upload()" [disabled]="!file">Envoyer</button>
-    </article>
+  <div class="layout">
+    <app-track-upload class="upload" (uploaded)="onUploaded()" />
 
-    <article class="card">
-      <div class="row">
-        <h2>Mes pistes</h2>
-        <button type="button" (click)="load()">Actualiser</button>
+    <section class="tracklist" aria-labelledby="tracks-title">
+      <div class="tracklist-head">
+        <h2 id="tracks-title">Mes pistes <span class="count">{{ total() }}</span></h2>
+        <button type="button" class="ghost" (click)="load()" [disabled]="loading()">Actualiser</button>
       </div>
+
+      @if (audioError()) {
+        <p class="error" role="alert">{{ audioError() }}</p>
+      }
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
       @if (loading()) {
-        <p>Chargement…</p>
+        <p class="status" role="status">Chargement…</p>
       }
-      @for (track of tracks(); track track.id) {
-        <div class="track">
-          <div>
-            <b>{{ track.title }}</b>
-            <small>{{ track.originalName }} · {{ track.size }} Ko</small>
-          </div>
-          <button type="button" (click)="play(track)" [attr.aria-label]="'Lire ' + track.title">▶</button>
-        </div>
-      } @empty {
-        <p>Aucune piste.</p>
-      }
-      <div class="pager">
-        <button type="button" (click)="go(page() - 1)" [disabled]="page() === 1">Préc.</button>
-        <span>Page {{ page() }} / {{ pages() }}</span>
-        <button type="button" (click)="go(page() + 1)" [disabled]="page() === pages()">Suiv.</button>
-      </div>
-      @if (audioUrl()) {
-        <audio [src]="audioUrl()" controls autoplay></audio>
-      }
-    </article>
+
+      <ul class="tracks" [attr.aria-busy]="loading()">
+        @for (track of tracks(); track track.id) {
+          <li>
+            <app-track-card
+              [track]="track"
+              [current]="currentTrack()?.id === track.id"
+              [loadingAudio]="loadingAudioId() === track.id"
+              [deleting]="deletingId() === track.id"
+              [disabled]="deletingId() !== null"
+              [editing]="editingId() === track.id"
+              [saving]="savingId() === track.id"
+              (play)="play($event)"
+              (remove)="remove($event)"
+              (edit)="edit($event)"
+              (cancelEdit)="cancelEdit()"
+              (save)="save($event)"
+            />
+          </li>
+        } @empty {
+          @if (!loading() && !error()) {
+            <li class="empty">Aucune piste pour l’instant. Importez un fichier MP3, WAV, OGG ou M4A pour commencer.</li>
+          }
+        }
+      </ul>
+
+      <mat-paginator
+        [length]="total()"
+        [pageIndex]="page() - 1"
+        [pageSize]="limit()"
+        [pageSizeOptions]="[5, 10, 20]"
+        [disabled]="loading()"
+        (page)="onPage($event)"
+        aria-label="Pagination des pistes"
+      />
+    </section>
   </div>
+
 </section>
