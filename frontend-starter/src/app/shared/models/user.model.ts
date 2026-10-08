@@ -7,10 +7,16 @@ export interface Avatar {
   price: number;
 }
 
-/** Fond de scène affiché derrière la piste : dégradé de deux couleurs et deux projecteurs. */
+import { StageShader } from '../utils/stage-shaders';
+
+/**
+ * Fond de scène affiché derrière la piste : un shader animé (`shader`), ou `null` pour le
+ * dégradé de départ. Les couleurs servent de décor de secours sans WebGL.
+ */
 export interface Background {
   id: string;
   name: string;
+  shader: StageShader | null;
   stage: string;
   deep: string;
   spotA: string;

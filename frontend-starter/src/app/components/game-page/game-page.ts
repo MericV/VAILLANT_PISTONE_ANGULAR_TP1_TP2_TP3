@@ -30,6 +30,7 @@ import {
   toMono,
 } from '../../shared/utils/beatmap';
 import { httpErrorMessage } from '../../shared/utils/http-error';
+import { StageShaderComponent } from '../stage-shader/stage-shader';
 
 /** Touches par couloir : AZERTY d'abord (comme Guithar Hero), QWERTY en alternative. */
 const LANE_KEYS = [['a', 'q'], ['z', 'w'], ['e'], ['r'], ['t']];
@@ -77,7 +78,7 @@ export type SaveState =
  * L'horloge du jeu est celle de l'AudioContext : les notes restent calées sur la musique.
  */
 @Component({
-  imports: [RouterLink, DecimalPipe],
+  imports: [RouterLink, DecimalPipe, StageShaderComponent],
   templateUrl: './game-page.html',
   styleUrl: './game-page.css',
   host: { '(document:keydown)': 'onKey($event)', '(document:keyup)': 'onKeyUp($event)' },
@@ -93,6 +94,10 @@ export class GamePageComponent implements OnDestroy {
   readonly title: string = history.state?.title ?? 'Morceau';
   /** Fond de scène acheté et choisi dans la boutique, affiché derrière la piste. */
   readonly backdrop = computed(() => this.auth.currentUser()?.background ?? null);
+  /** Analyseur de la musique en cours : le fond animé y lit l'énergie des basses. */
+  readonly analyser = signal<AnalyserNode | null>(null);
+  /** Combo de 0 à 1 (plein à 30 notes d'affilée) : le fond animé s'intensifie avec lui. */
+  readonly comboHeat = computed(() => Math.min(this.combo(), 30) / 30);
   /** Partie à plusieurs lancée depuis le salon d'un groupe, sinon `null` (partie solo). */
   readonly live: LiveLaunch | null = history.state?.live ?? null;
   /** État du groupe pendant la partie : scores des autres joueurs, en direct. */
@@ -260,7 +265,12 @@ export class GamePageComponent implements OnDestroy {
 
     this.source = audio.createBufferSource();
     this.source.buffer = this.buffer;
-    this.source.connect(audio.destination);
+    // source → analyseur → haut-parleurs : l'analyseur écoute la musique sans la modifier.
+    const analyser = audio.createAnalyser();
+    analyser.fftSize = 1024;
+    this.source.connect(analyser);
+    analyser.connect(audio.destination);
+    this.analyser.set(analyser);
     this.startAt = audio.currentTime + leadInS;
     this.source.start(this.startAt);
     this.source.onended = () => this.finish();

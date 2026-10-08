@@ -24,19 +24,18 @@ export function avatarById(id) {
 }
 
 /**
- * Fonds de scène affichés derrière la piste pendant une partie. Chaque fond est un dégradé
- * de deux couleurs (`stage` en haut, `deep` en bas) éclairé par deux projecteurs (`spotA`, `spotB`) :
- * pas d'image à télécharger, le navigateur le dessine en CSS.
+ * Fonds de scène affichés derrière la piste pendant une partie.
+ * Le fond de départ est un simple dégradé CSS ; les fonds payants sont des shaders WebGL
+ * animés (`shader`), qui réagissent aux basses de la musique et au combo du joueur.
+ * Les couleurs (`stage`, `deep`, `spotA`, `spotB`) servent de décor de secours quand le
+ * navigateur n'a pas WebGL, et d'arrière-plan pendant le chargement du shader.
  */
 export const BACKGROUNDS = [
-  { id: "stage", name: "Scène néon", stage: "#2b1468", deep: "#140a33", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 0 },
-  { id: "sunset", name: "Coucher de soleil", stage: "#6b1d3a", deep: "#1f0b1a", spotA: "#ff8a1f", spotB: "#ffd34d", price: 300 },
-  { id: "ocean", name: "Abysses", stage: "#0c3a5c", deep: "#04121f", spotA: "#2ee6ff", spotB: "#4d7cff", price: 400 },
-  { id: "forest", name: "Forêt néon", stage: "#0f4a32", deep: "#04160f", spotA: "#7dff6a", spotB: "#2ee6ff", price: 500 },
-  { id: "lava", name: "Coulée de lave", stage: "#5c1408", deep: "#190402", spotA: "#ff3b2f", spotB: "#ff9a3d", price: 800 },
-  { id: "galaxy", name: "Galaxie", stage: "#1b0f4a", deep: "#05030f", spotA: "#b48cff", spotB: "#ff7ad9", price: 1200 },
-  { id: "aurora", name: "Aurore boréale", stage: "#0b3a3a", deep: "#031012", spotA: "#4dffa6", spotB: "#b48cff", price: 1600 },
-  { id: "gold", name: "Salle d'or", stage: "#4a3708", deep: "#140f02", spotA: "#ffd34d", spotB: "#ffffff", price: 2500 },
+  { id: "stage", name: "Scène néon", shader: null, stage: "#2b1468", deep: "#140a33", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 0 },
+  { id: "caustics", name: "Caustiques océan", shader: "caustics", stage: "#0c3a5c", deep: "#04121f", spotA: "#2ee6ff", spotB: "#4d7cff", price: 400 },
+  { id: "aurora", name: "Aurore boréale", shader: "aurora", stage: "#0b2a3a", deep: "#020814", spotA: "#4dffa6", spotB: "#b48cff", price: 800 },
+  { id: "lasers", name: "Lasers de concert", shader: "lasers", stage: "#1b0a2e", deep: "#05020a", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 1500 },
+  { id: "sparks", name: "Étincelles", shader: "sparks", stage: "#3a1204", deep: "#0a0301", spotA: "#ff8a1f", spotB: "#ffd34d", price: 2500 },
 ];
 
 export const STARTER_BACKGROUND = "stage";

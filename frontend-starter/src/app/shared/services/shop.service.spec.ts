@@ -9,7 +9,7 @@ import { User } from '../models/user.model';
 const user: User = {
   id: 'u1', name: 'Léa', email: 'l@x.fr', createdAt: '', coins: 50, avatars: ['rocker', 'fox'], backgrounds: ['stage', 'lava'],
   avatar: { id: 'fox', name: 'Renard', emoji: '🦊', color: '#ff9a3d', price: 600 },
-  background: { id: 'lava', name: 'Coulée de lave', stage: '#5c1408', deep: '#190402', spotA: '#ff3b2f', spotB: '#ff9a3d', price: 800 },
+  background: { id: 'lava', name: 'Coulée de lave', shader: 'lasers', stage: '#5c1408', deep: '#190402', spotA: '#ff3b2f', spotB: '#ff9a3d', price: 800 },
 };
 
 describe('ShopService', () => {

@@ -168,6 +168,9 @@ audio { width: 100%; }
   --accent: #8f5bff;
   color-scheme: dark;
   color: var(--fg);
+  /* Contexte d'empilement : un fond animé (z-index: -1) reste derrière le contenu, devant le dégradé. */
+  position: relative;
+  isolation: isolate;
   min-height: calc(100dvh - 4.5rem);
   margin: -2rem calc(50% - 50vw) -3rem;
   padding: 1.25rem max(1rem, calc(50vw - 560px)) 2rem;

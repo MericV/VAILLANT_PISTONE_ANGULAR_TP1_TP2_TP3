@@ -40,8 +40,12 @@
                     <app-avatar-badge [avatar]="avatar" [size]="68" />
                   }
                   @if (item.background; as bg) {
-                    <!-- Aperçu : le même dégradé que derrière la piste, avec une mini-piste pour juger le contraste. -->
+                    <!-- Aperçu : le même décor que derrière la piste, avec une mini-piste pour juger le contraste. -->
                     <div class="preview stage-backdrop" [style.--stage]="bg.stage" [style.--stage-deep]="bg.deep" [style.--spot-a]="bg.spotA" [style.--spot-b]="bg.spotB" aria-hidden="true">
+                      <!-- Aperçu animé : le vrai shader, qui pulse comme sur une musique (≈ 120 bpm). -->
+                      @if (bg.shader; as shader) {
+                        <app-stage-shader [shader]="shader" [combo]="0.6" />
+                      }
                       <span class="mini-road"></span>
                     </div>
                   }

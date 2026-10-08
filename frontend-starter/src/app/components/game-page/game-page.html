@@ -6,6 +6,9 @@
   [style.--spot-a]="backdrop()?.spotA"
   [style.--spot-b]="backdrop()?.spotB"
 >
+  @if (backdrop()?.shader; as shader) {
+    <app-stage-shader [shader]="shader" [analyser]="analyser()" [combo]="comboHeat()" [judgement]="feedback()" />
+  }
   <header class="game-head">
     <a routerLink="/tracks">Retour à la bibliothèque</a>
     <h1>{{ title }}</h1>

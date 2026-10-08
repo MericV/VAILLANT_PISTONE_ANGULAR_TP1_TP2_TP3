@@ -10,11 +10,11 @@ import { GroupService } from '../../shared/services/group.service';
 import { Subject } from 'rxjs';
 import { LiveState } from '../../shared/models/group.model';
 import { signal } from '@angular/core';
-import { User } from '../../shared/models/user.model';
+import { Background, User } from '../../shared/models/user.model';
 import { GameNote } from '../../shared/utils/beatmap';
 
 const RATE = 44100;
-const lava = { id: 'lava', name: 'Coulée de lave', stage: '#5c1408', deep: '#190402', spotA: '#ff3b2f', spotB: '#ff9a3d', price: 800 };
+const lava: Background = { id: 'lava', name: 'Coulée de lave', shader: 'lasers', stage: '#5c1408', deep: '#190402', spotA: '#ff3b2f', spotB: '#ff9a3d', price: 800 };
 
 /** Morceau synthétique de 3 s : un seul coup sec à 1 s, donc une seule note attendue. */
 function samplesWithClickAt1s(): Float32Array {
@@ -36,6 +36,7 @@ class FakeAudioContext {
     getChannelData: () => samplesWithClickAt1s(),
   }));
   createBufferSource = vi.fn(() => ({ connect: vi.fn(), start: vi.fn(), stop: vi.fn(), buffer: null, onended: null }));
+  createAnalyser = vi.fn(() => ({ connect: vi.fn(), fftSize: 0 }));
 }
 
 describe('GamePageComponent', () => {
@@ -320,6 +321,8 @@ describe('GamePageComponent', () => {
       expect(scene.classList).toContain('stage-backdrop');
       expect(scene.style.getPropertyValue('--stage')).toBe('#5c1408');
       expect(scene.style.getPropertyValue('--spot-a')).toBe('#ff3b2f');
+      // Fond animé : le shader est posé dans la scène (il reste inerte sous jsdom, sans WebGL).
+      expect(scene.querySelector('app-stage-shader')).not.toBeNull();
     });
 
     it('affiche le record à battre quand la partie ne le bat pas', async () => {

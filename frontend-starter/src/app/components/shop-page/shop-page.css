@@ -37,7 +37,7 @@
 
 /* ---- Grille d'articles ---- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 0.8rem; margin: 0; padding: 1rem 0 0.25rem; list-style: none; }
-.grid.wide { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.grid.wide { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 
 /*
  * Carte d'article : verre fumé teinté par la rareté (--rarity). Quatre lignes fixes
@@ -83,5 +83,5 @@ button.equip:not([class*='mat-']) { color: var(--fg); background: rgb(180 140 25
 .progress i { display: block; height: 100%; background: var(--rarity); transform-origin: left; }
 
 /* Aperçu d'un fond : format paysage avec une mini-piste en perspective au centre. */
-.preview { display: grid; place-items: end center; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08); }
+.preview { position: relative; isolation: isolate; display: grid; place-items: end center; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08); }
 .mini-road { width: 46%; height: 78%; background: linear-gradient(180deg, transparent, rgb(78 40 170 / 0.85)); border-inline: 2px solid #b48cff; clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%); }
