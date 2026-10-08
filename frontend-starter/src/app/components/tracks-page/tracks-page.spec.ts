@@ -263,7 +263,7 @@ describe('TracksPageComponent', () => {
 
   describe('records', () => {
     const record = (trackId: string, difficulty: ScoreRecord['difficulty'], score: number, stars: number): ScoreRecord => ({
-      id: `${trackId}-${difficulty}`, trackId, difficulty, score, stars, accuracy: 90, maxCombo: 10, updatedAt: '2026-10-08',
+      id: `${trackId}-${difficulty}`, trackId, difficulty, instrument: 'lead', score, stars, accuracy: 90, maxCombo: 10, updatedAt: '2026-10-08',
     });
 
     it('garde le meilleur record par morceau, toutes difficultés confondues, et l’affiche sur la carte', async () => {

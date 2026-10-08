@@ -49,6 +49,7 @@
 
 .keys { display: flex; gap: 0.5rem; margin: 0.75rem 0 0.25rem; padding: 0; list-style: none; }
 kbd { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; font: inherit; font-weight: 800; color: var(--lane); border: 2px solid var(--lane); border-radius: 10px; box-shadow: 0 0 10px color-mix(in srgb, var(--lane) 40%, transparent); }
+.instrument-hint { margin-top: -0.5rem; }
 .hint { color: var(--muted); font-size: 0.85rem; font-weight: 400; }
 .legend { display: grid; gap: 0.35rem; margin: 1rem 0 0.5rem; padding: 0; list-style: none; color: var(--muted); font-size: 0.85rem; }
 .legend b { margin-right: 0.35rem; color: var(--fg); }
@@ -74,15 +75,15 @@ button.go:not([class*='mat-']) { width: 100%; margin-top: 0.5rem; padding: 0.85r
 /* Badge du multiplicateur, posé à cheval sur le bas de la piste. Sa couleur suit le palier. */
 .multiplier { position: absolute; bottom: -1.4rem; left: 50%; display: grid; place-items: center; width: 4.2rem; height: 4.2rem; margin: 0; translate: -50% 0; color: #ffffff; font-size: 1.5rem; font-style: italic; font-weight: 900; font-stretch: 120%; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--tier) 70%, #ffffff), var(--tier) 70%); border: 3px solid rgb(255 255 255 / 0.85); border-radius: 50%; box-shadow: 0 0 22px var(--tier); transition: background 300ms, box-shadow 300ms; }
 
-.combo-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 78%; margin: 1.6rem auto 0; }
+.combo-bar { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; gap: 4px; width: 78%; margin: 1.6rem auto 0; }
 .segment { height: 8px; overflow: hidden; background: rgb(255 255 255 / 0.12); border-radius: 999px; }
 .segment i { display: block; height: 100%; transform-origin: left; transition: transform 150ms ease-out; }
 .segment:nth-child(1) i { background: var(--tier-0); }
 .segment:nth-child(2) i { background: var(--tier-1); }
-.segment:nth-child(3) i { background: var(--tier-2); }
+.segment:nth-child(n + 3) i { background: var(--tier-2); }
 .segment:nth-child(1).full { box-shadow: 0 0 10px var(--tier-0); }
 .segment:nth-child(2).full { box-shadow: 0 0 10px var(--tier-1); }
-.segment:nth-child(3).full { box-shadow: 0 0 10px var(--tier-2); }
+.segment:nth-child(n + 3).full { box-shadow: 0 0 10px var(--tier-2); }
 
 .hud { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
 .hud-score { padding: 0.6rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }

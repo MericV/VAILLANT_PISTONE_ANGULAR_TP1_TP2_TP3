@@ -17,6 +17,17 @@
     @case ('ready') {
       <div class="panel setup">
         <fieldset class="difficulty">
+          <legend>Instrument</legend>
+          @for (i of instruments; track i.value) {
+            <label>
+              <input type="radio" name="instrument" [value]="i.value" [checked]="instrument() === i.value" (change)="instrument.set(i.value)" />
+              {{ i.label }}
+            </label>
+          }
+        </fieldset>
+        <p class="hint instrument-hint">{{ instrumentDescription() }}</p>
+
+        <fieldset class="difficulty">
           <legend>Difficulté</legend>
           @for (d of difficulties; track d.value) {
             <label>
@@ -108,13 +119,13 @@
         <p class="multiplier">x{{ multiplier() }}</p>
       </div>
 
-      <!-- 3 segments de 10 notes : bleu plein → x2, orange plein → x3, rouge plein → x4. Un raté vide la barre. -->
+      <!-- Segments de 10 notes : bleu plein → x2, orange → x3, rouge → x4 (puis x5, x6 à la basse). Un raté vide la barre. -->
       <div
         class="combo-bar"
         role="meter"
         aria-label="Barre de combo"
         aria-valuemin="0"
-        [attr.aria-valuemax]="comboBarMax"
+        [attr.aria-valuemax]="comboBarMax()"
         [attr.aria-valuenow]="comboMeter()"
         [attr.aria-valuetext]="combo() + ' notes d’affilée, multiplicateur x' + multiplier()"
       >

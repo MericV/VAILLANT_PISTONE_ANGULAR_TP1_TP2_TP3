@@ -17,7 +17,7 @@ describe('ScoreService', () => {
   afterEach(() => http.verify());
 
   it('envoie le résultat de la partie avec POST /api/scores', () => {
-    const result: GameResult = { trackId: 't1', difficulty: 'hard', score: 1200, stars: 3, accuracy: 88, maxCombo: 40 };
+    const result: GameResult = { trackId: 't1', difficulty: 'hard', instrument: 'bass', score: 1200, stars: 3, accuracy: 88, maxCombo: 40 };
     let best: boolean | undefined;
     service.submit(result).subscribe((response) => (best = response.best));
 

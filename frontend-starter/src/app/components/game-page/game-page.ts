@@ -13,6 +13,8 @@ import {
   GameNote,
   generateChart,
   GOOD_WINDOW_MS,
+  Instrument,
+  INSTRUMENTS,
   grade,
   judge,
   Judgement,
@@ -47,7 +49,6 @@ const VANISH_Y = -40; // point de fuite, au-dessus du canvas
 const ROAD_WIDTH = 500; // largeur de la piste au niveau de la ligne de frappe
 const PERSPECTIVE = 3;
 const BEAT_MS = 500; // lignes transversales qui défilent : elles rendent la vitesse lisible
-const COMBO_BAR_MAX = 30; // 3 segments de 10 notes : la barre est pleine au palier x4
 
 /*
  * Overdrive : chaque phrase dorée réussie sans raté remplit un quart de la jauge.
@@ -91,6 +92,12 @@ export class GamePageComponent implements OnDestroy {
   readonly phase = signal<Phase>('loading');
   readonly error = signal('');
   readonly difficulty = signal<Difficulty>('medium');
+  readonly instruments = (Object.keys(INSTRUMENTS) as Instrument[]).map((value) => ({ value, ...INSTRUMENTS[value] }));
+  readonly instrument = signal<Instrument>('lead');
+  /** Instrument de la partie en cours : il fixe le plafond du multiplicateur (x6 à la basse). */
+  private readonly playedInstrument = signal<Instrument>('lead');
+  readonly instrumentDescription = computed(() => INSTRUMENTS[this.instrument()].description);
+  private readonly maxMultiplier = computed(() => INSTRUMENTS[this.playedInstrument()].maxMultiplier);
   /** Couloirs de la difficulté choisie : 4 ou 5 touches. */
   readonly lanes = computed(() =>
     LANE_KEYS.slice(0, DIFFICULTIES[this.difficulty()].lanes).map((keys, i) => ({ key: keys[0].toUpperCase(), color: LANE_COLORS[i] })),
@@ -122,15 +129,20 @@ export class GamePageComponent implements OnDestroy {
   /** Le score avance en continu pendant les maintiens : on n'affiche que des points entiers. */
   readonly displayScore = computed(() => Math.round(this.score()));
   /** Multiplicateur du combo : x1 de 0 à 9 notes d'affilée, x2 de 10 à 19… plafonné à x4. */
-  readonly baseMultiplier = computed(() => multiplierFor(this.combo()));
+  readonly baseMultiplier = computed(() => multiplierFor(this.combo(), this.maxMultiplier()));
   /** Multiplicateur appliqué : doublé pendant l'Overdrive (x8 au maximum). */
   readonly multiplier = computed(() => this.baseMultiplier() * (this.overdriveActive() ? 2 : 1));
   /** Palier affiché par la barre et le badge : 0 bleu, 1 orange, 2 rouge. */
   readonly tier = computed(() => Math.min(2, this.baseMultiplier() - 1));
-  /** Barre de combo en 3 segments de 10 notes : remplissage de chaque segment, de 0 à 1. */
-  readonly comboSegments = computed(() => [0, 1, 2].map((i) => Math.min(1, Math.max(0, (this.combo() - i * 10) / 10))));
-  readonly comboMeter = computed(() => Math.min(this.combo(), COMBO_BAR_MAX));
-  readonly comboBarMax = COMBO_BAR_MAX;
+  /**
+   * Barre de combo : un segment de 10 notes par palier à gagner (3 jusqu'à x4, 5 jusqu'à x6 à la basse).
+   * Chaque valeur est le remplissage du segment, de 0 à 1.
+   */
+  readonly comboBarMax = computed(() => (this.maxMultiplier() - 1) * 10);
+  readonly comboSegments = computed(() =>
+    Array.from({ length: this.maxMultiplier() - 1 }, (_, i) => Math.min(1, Math.max(0, (this.combo() - i * 10) / 10))),
+  );
+  readonly comboMeter = computed(() => Math.min(this.combo(), this.comboBarMax()));
 
   /** Score d'une partie parfaite sur la partition en cours : référence des étoiles. */
   private readonly perfectScore = signal(0);
@@ -200,16 +212,17 @@ export class GamePageComponent implements OnDestroy {
     await audio.resume(); // l'audio n'est autorisé qu'après un geste de l'utilisateur
 
     this.playedDifficulty = this.difficulty();
+    this.playedInstrument.set(this.instrument());
     this.save.set({ status: 'idle' });
     const settings = DIFFICULTIES[this.playedDifficulty];
     this.laneCount = settings.lanes;
     this.visibleMs = settings.visibleMs / this.trackSpeed();
-    this.notes = generateChart(this.samples, this.buffer.sampleRate, this.difficulty()).map((n) => ({
+    this.notes = generateChart(this.samples, this.buffer.sampleRate, this.difficulty(), this.instrument()).map((n) => ({
       ...n,
       result: null,
       sustaining: false,
     }));
-    this.perfectScore.set(maxScore(this.notes));
+    this.perfectScore.set(maxScore(this.notes, this.maxMultiplier()));
     this.score.set(0);
     this.combo.set(0);
     this.maxCombo.set(0);
@@ -506,6 +519,7 @@ export class GamePageComponent implements OnDestroy {
       .submit({
         trackId: this.trackId,
         difficulty: this.playedDifficulty,
+        instrument: this.playedInstrument(),
         score: this.displayScore(),
         stars: Math.floor(this.stars()),
         accuracy: this.accuracy(),

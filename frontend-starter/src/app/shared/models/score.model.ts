@@ -1,4 +1,4 @@
-import { Difficulty } from '../utils/beatmap';
+import { Difficulty, Instrument } from '../utils/beatmap';
 import { Avatar } from './user.model';
 
 /** Meilleur score d'un joueur sur un morceau, pour une difficulté (voir API_CONTRACT.md). */
@@ -6,6 +6,7 @@ export interface ScoreRecord {
   id: string;
   trackId: string;
   difficulty: Difficulty;
+  instrument: Instrument;
   score: number;
   stars: number;
   accuracy: number;

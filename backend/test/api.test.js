@@ -213,13 +213,20 @@ test("classement : 400 si la difficulté filtrée est inconnue", async () => {
   assert.equal(r.status, 400);
 });
 
-test("schéma Score : un seul record par joueur, morceau et difficulté", async () => {
-  const unique = Score.schema.indexes().find(([fields]) => fields.userId && fields.trackId && fields.difficulty);
+test("POST score : 400 si l'instrument est inconnu", async () => {
+  const r = await postScore({ ...validResult(), instrument: "triangle" });
+  assert.equal(r.status, 400);
+  assert.equal((await r.json()).message, "Instrument invalide");
+});
+
+test("schéma Score : un seul record par joueur, morceau, difficulté et instrument", async () => {
+  const unique = Score.schema.indexes().find(([fields]) => fields.userId && fields.trackId && fields.difficulty && fields.instrument);
   assert.ok(unique, "index composé attendu");
   assert.equal(unique[1].unique, true);
   const { errors } = await new Score({ difficulty: "legendary", stars: 9 }).validate().catch((e) => e);
   assert.ok(errors.difficulty);
   assert.ok(errors.stars);
+  assert.equal(new Score({}).instrument, "lead"); // anciens records : partition lead
 });
 
 /*

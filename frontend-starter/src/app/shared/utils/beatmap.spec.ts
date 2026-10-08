@@ -1,4 +1,4 @@
-import { ChartNote, DIFFICULTIES, findHittable, GameNote, generateChart, grade, judge, maxScore, multiplierFor, starProgress } from './beatmap';
+import { ChartNote, DIFFICULTIES, INSTRUMENTS, findHittable, GameNote, generateChart, grade, judge, maxScore, multiplierFor, starProgress } from './beatmap';
 
 const RATE = 44100;
 
@@ -19,7 +19,7 @@ function clicks(timesMs: number[], durationMs: number): Float32Array {
 }
 
 /**
- * Notes synthétiques « de guitare » : fondamentale + harmoniques 2 et 3, attaque franche,
+ * Notes synthétiques « de guitare » : fondamentale + harmoniques 2 et 3, attaque rapide,
  * sur un léger bruit de fond. La hauteur de chaque note est donc connue exactement.
  */
 function tones(notes: { startMs: number; durMs: number; hz: number }[], durationMs: number): Float32Array {
@@ -31,7 +31,10 @@ function tones(notes: { startMs: number; durMs: number; hz: number }[], duration
     const length = Math.round((durMs / 1000) * RATE);
     for (let i = 0; i < length && start + i < out.length; i++) {
       const t = i / RATE;
-      out[start + i] += 0.5 * Math.sin(2 * Math.PI * hz * t) + 0.25 * Math.sin(4 * Math.PI * hz * t) + 0.15 * Math.sin(6 * Math.PI * hz * t);
+      // Attaque et relâchement de 5 ms, comme un vrai instrument : un départ brutal ferait un « clic »
+      // contenant toutes les fréquences, que même un filtre passe-bas laisserait passer.
+      const envelope = Math.min(1, i / (0.005 * RATE), (length - i) / (0.005 * RATE));
+      out[start + i] += envelope * (0.5 * Math.sin(2 * Math.PI * hz * t) + 0.25 * Math.sin(4 * Math.PI * hz * t) + 0.15 * Math.sin(6 * Math.PI * hz * t));
     }
   }
   return out;
@@ -175,7 +178,7 @@ describe('jugement des frappes', () => {
 
 describe('multiplicateur, score maximal et étoiles', () => {
   it('monte d’un palier toutes les 10 notes et plafonne à x4', () => {
-    expect([0, 9, 10, 29, 30, 500].map(multiplierFor)).toEqual([1, 1, 2, 3, 4, 4]);
+    expect([0, 9, 10, 29, 30, 500].map((combo) => multiplierFor(combo))).toEqual([1, 1, 2, 3, 4, 4]);
   });
 
   it('calcule le score maximal en tenant compte des paliers et des maintiens', () => {
@@ -195,5 +198,63 @@ describe('multiplicateur, score maximal et étoiles', () => {
     expect(starProgress(550, 1000)).toBeCloseTo(3.5); // entre 45 % et 65 %
     expect(starProgress(1000, 1000)).toBe(5);
     expect(starProgress(0, 0)).toBe(0);
+  });
+});
+
+describe('partitions par instrument', () => {
+  const near = (times: number[], expected: number[]) =>
+    expected.every((t) => times.some((x) => Math.abs(x - t) <= 30)) && times.length === expected.length;
+
+  it('la basse n’entend que les graves du mix', () => {
+    const bassAt = [500, 1500, 2500];
+    const leadAt = [1000, 2000, 3000];
+    const mix = tones(
+      [
+        ...bassAt.map((startMs, i) => ({ startMs, durMs: 250, hz: [82, 110, 98][i] })),
+        ...leadAt.map((startMs, i) => ({ startMs, durMs: 250, hz: [1320, 1480, 1760][i] })),
+      ],
+      3600,
+    );
+
+    expect(near(generateChart(mix, RATE, 'medium', 'bass').map((n) => n.timeMs), bassAt)).toBe(true);
+    // Le lead joue sur tout le mix : il garde les deux séries d'attaques.
+    expect(generateChart(mix, RATE, 'medium', 'lead').length).toBe(6);
+  });
+
+  it('batterie : grosse caisse à gauche, charleston à droite, sans note longue ni HOPO', () => {
+    const drums = new Float32Array(RATE * 4);
+    let seed = 11;
+    const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+    const kicks = [400, 1400, 2400];
+    const hats = [900, 1900, 2900];
+    for (const t of kicks) {
+      const start = Math.round((t / 1000) * RATE);
+      for (let i = 0; i < 0.15 * RATE; i++) {
+        drums[start + i] = 0.9 * Math.min(1, i / (0.002 * RATE)) * Math.exp(-i / (0.04 * RATE)) * Math.sin((2 * Math.PI * 60 * i) / RATE);
+      }
+    }
+    for (const t of hats) {
+      const start = Math.round((t / 1000) * RATE);
+      for (let i = 0; i < 0.03 * RATE; i++) drums[start + i] = 0.6 * noise();
+    }
+
+    const chart = generateChart(drums, RATE, 'medium', 'drums');
+    const laneAt = (t: number) => chart.find((n) => Math.abs(n.timeMs - t) <= 30)!.lane;
+
+    expect(kicks.map(laneAt)).toEqual([0, 0, 0]); // même fût = même touche, tout le morceau
+    expect(hats.map(laneAt)).toEqual([3, 3, 3]);
+    expect(chart.every((n) => n.durationMs === 0 && !n.hopo)).toBe(true);
+  });
+
+  it('le chant transforme en note longue une note plus courte que le lead', () => {
+    const phrase = tones([{ startMs: 500, durMs: 420, hz: 440 }, { startMs: 1300, durMs: 200, hz: 523 }], 2000);
+
+    expect(generateChart(phrase, RATE, 'medium', 'vocals')[0].durationMs).toBeGreaterThanOrEqual(INSTRUMENTS.vocals.sustainMinMs);
+    expect(generateChart(phrase, RATE, 'medium', 'lead')[0].durationMs).toBe(0);
+  });
+
+  it('le multiplicateur de la basse monte jusqu’à x6', () => {
+    expect(multiplierFor(55, INSTRUMENTS.bass.maxMultiplier)).toBe(6);
+    expect(multiplierFor(55)).toBe(4);
   });
 });

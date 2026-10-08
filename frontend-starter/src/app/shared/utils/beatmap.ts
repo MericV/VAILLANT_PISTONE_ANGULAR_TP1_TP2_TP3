@@ -49,15 +49,82 @@ export const DIFFICULTIES: Record<
   expert: { label: 'Expert', lanes: 5, minGapMs: 110, sensitivity: 1.2, chordShare: 0.3, hopoGapMs: 180, visibleMs: 1000 },
 };
 
+export type Instrument = 'lead' | 'bass' | 'drums' | 'vocals';
+
+/**
+ * Partitions par instrument, générées à partir du même mix : chaque instrument écoute
+ * sa bande de fréquences (filtres) et a ses propres règles de jeu.
+ * - `filters` : filtres appliqués au son avant de chercher les attaques ;
+ * - `pitchBand` : où chercher la hauteur des notes (`null` pour la batterie, sans hauteur) ;
+ * - `gapFactor` : multiplie l'écart minimal entre deux notes (basse et chant plus aérés) ;
+ * - `maxMultiplier` : x4, ou x6 pour la basse qui a moins de notes (comme dans Festival).
+ */
+export const INSTRUMENTS: Record<
+  Instrument,
+  {
+    label: string;
+    description: string;
+    filters: { type: 'lowpass' | 'highpass'; hz: number }[];
+    pitchBand: { minHz: number; maxHz: number } | null;
+    gapFactor: number;
+    maxMultiplier: number;
+    sustainMinMs: number;
+    sustainEnergyRatio: number;
+    hopo: boolean;
+  }
+> = {
+  lead: {
+    label: 'Lead',
+    description: 'La mélodie et les solos : enchaînements rapides, accords.',
+    filters: [],
+    pitchBand: { minHz: 100, maxHz: 1500 },
+    gapFactor: 1,
+    maxMultiplier: 4,
+    sustainMinMs: 400,
+    sustainEnergyRatio: 0.4,
+    hopo: true,
+  },
+  bass: {
+    label: 'Basse',
+    description: 'Les graves et le groove : moins de notes, mais un timing régulier. Multiplicateur jusqu’à x6.',
+    // Deux passe-bas en série : coupure plus franche des médiums (−24 dB par octave).
+    filters: [{ type: 'lowpass', hz: 250 }, { type: 'lowpass', hz: 250 }],
+    pitchBand: { minHz: 40, maxHz: 300 },
+    gapFactor: 1.5,
+    maxMultiplier: 6,
+    sustainMinMs: 400,
+    sustainEnergyRatio: 0.4,
+    hopo: true,
+  },
+  drums: {
+    label: 'Batterie',
+    description: 'Les frappes : grosse caisse à gauche, caisse claire au milieu, cymbales à droite.',
+    filters: [],
+    pitchBand: null,
+    gapFactor: 1,
+    maxMultiplier: 4,
+    sustainMinMs: Infinity, // pas de note longue à la batterie
+    sustainEnergyRatio: 1,
+    hopo: false,
+  },
+  vocals: {
+    label: 'Chant',
+    description: 'La voix : des notes tenues qui suivent la mélodie chantée.',
+    filters: [{ type: 'highpass', hz: 150 }, { type: 'lowpass', hz: 1200 }],
+    pitchBand: { minHz: 150, maxHz: 1000 },
+    gapFactor: 1.3,
+    maxMultiplier: 4,
+    sustainMinMs: 300,
+    sustainEnergyRatio: 0.3,
+    hopo: false,
+  },
+};
+
 // Notes longues : la hauteur reste la même (±1 demi-ton) et le son ne faiblit pas trop.
-const SUSTAIN_MIN_MS = 400;
 const SUSTAIN_MAX_MS = 3000;
 const SUSTAIN_STEP_MS = 100; // on vérifie la tenue du son tous les 100 ms
-const SUSTAIN_ENERGY_RATIO = 0.4; // le son peut descendre à 40 % de son énergie de départ
 // Hauteur mesurée 40 ms après l'attaque : le choc initial (médiator, baguette) brouille le spectre.
 const PITCH_DELAY_MS = 40;
-// Plage où l'on cherche la mélodie : au-dessus du gros de la basse, sous les cymbales.
-const PITCH_BAND = { minHz: 100, maxHz: 1500 };
 // Les couloirs sont répartis selon les hauteurs jouées dans les ±5 s autour de chaque note.
 const LANE_WINDOW_MS = 10000;
 // Phrases Overdrive : 6 notes dorées toutes les 32 attaques, à partir de la 16e.
@@ -71,8 +138,18 @@ const AVERAGE_WINDOW_S = 0.5; // seuil adaptatif calculé sur ±0,5 s autour de 
 
 // ponytail: attaques par flux d'énergie (rapide) ; la FFT ne sert qu'aux instants des attaques
 // (hauteur, tenue). Passer au flux spectral si les attaques elles-mêmes semblent mal placées.
-export function generateChart(samples: Float32Array, sampleRate: number, difficulty: Difficulty): ChartNote[] {
-  const { lanes, minGapMs, sensitivity, chordShare, hopoGapMs } = DIFFICULTIES[difficulty];
+export function generateChart(
+  mix: Float32Array,
+  sampleRate: number,
+  difficulty: Difficulty,
+  instrument: Instrument = 'lead',
+): ChartNote[] {
+  const part = INSTRUMENTS[instrument];
+  const { lanes, sensitivity, chordShare } = DIFFICULTIES[difficulty];
+  const minGapMs = DIFFICULTIES[difficulty].minGapMs * part.gapFactor;
+  const hopoGapMs = part.hopo ? DIFFICULTIES[difficulty].hopoGapMs : 0;
+  // 0. On n'écoute que la bande de l'instrument (la basse n'entend plus le chant, etc.).
+  const samples = part.filters.reduce((signal, filter) => biquad(signal, sampleRate, filter.type, filter.hz), mix);
   const frameCount = Math.max(0, Math.floor((samples.length - FRAME) / HOP) + 1);
   if (frameCount < 3) return [];
 
@@ -99,7 +176,8 @@ export function generateChart(samples: Float32Array, sampleRate: number, difficu
   for (let f = 1; f < frameCount - 1; f++) {
     const from = Math.max(0, f - half);
     const to = Math.min(frameCount, f + half + 1);
-    const threshold = ((prefix[to] - prefix[from]) / (to - from)) * sensitivity + 0.02;
+    // + 0,1 : on ignore les hausses minuscules (≈ +10 % d'énergie), souvent des restes filtrés.
+    const threshold = ((prefix[to] - prefix[from]) / (to - from)) * sensitivity + 0.1;
     const timeMs = Math.round(((f * HOP + FRAME / 2) / sampleRate) * 1000);
     if (flux[f] > threshold && flux[f] >= flux[f - 1] && flux[f] > flux[f + 1] && timeMs - lastMs >= minGapMs) {
       onsets.push({ timeMs, sample: f * HOP, strength: flux[f] });
@@ -109,10 +187,11 @@ export function generateChart(samples: Float32Array, sampleRate: number, difficu
 
   // 5. Hauteur de chaque attaque, puis notes longues : tant que la même note sonne, le joueur tient
   //    la touche, et les attaques qui tombent pendant ce maintien sont retirées.
-  const analyse = pitchAnalyser(samples, sampleRate, PITCH_BAND);
+  //    La batterie n'a pas de hauteur : son couloir dépend du timbre de la frappe (étape 6 bis).
+  const analyse = part.pitchBand ? pitchAnalyser(samples, sampleRate, part.pitchBand) : () => null;
   const delay = Math.round((PITCH_DELAY_MS / 1000) * sampleRate);
   const step = Math.round((SUSTAIN_STEP_MS / 1000) * sampleRate);
-  const kept: { timeMs: number; strength: number; midi: number | null; durationMs: number }[] = [];
+  const kept: { timeMs: number; sample: number; strength: number; midi: number | null; durationMs: number }[] = [];
   let busyUntil = -Infinity;
   for (const o of onsets) {
     if (o.timeMs < busyUntil) continue;
@@ -121,20 +200,22 @@ export function generateChart(samples: Float32Array, sampleRate: number, difficu
     let misses = 0; // un coup de batterie peut brouiller une mesure isolée : on en tolère une à la suite
     for (let t = SUSTAIN_STEP_MS; base && t <= SUSTAIN_MAX_MS && misses < 2; t += SUSTAIN_STEP_MS) {
       const now = analyse(o.sample + delay + (t / SUSTAIN_STEP_MS) * step);
-      const same = now && Math.abs(now.midi - base.midi) <= 1 && now.energy >= SUSTAIN_ENERGY_RATIO * base.energy;
+      const same = now && Math.abs(now.midi - base.midi) <= 1 && now.energy >= part.sustainEnergyRatio * base.energy;
       misses = same ? 0 : misses + 1;
       if (same) held = t;
     }
-    const durationMs = held >= SUSTAIN_MIN_MS ? held : 0;
+    const durationMs = held >= part.sustainMinMs ? held : 0;
     if (durationMs) busyUntil = o.timeMs + durationMs + SUSTAIN_STEP_MS;
-    kept.push({ timeMs: o.timeMs, strength: o.strength, midi: base?.midi ?? null, durationMs });
+    kept.push({ timeMs: o.timeMs, sample: o.sample, strength: o.strength, midi: base?.midi ?? null, durationMs });
   }
 
   // 6. Couloirs selon la hauteur : plus aigu = plus à droite, même note = même touche.
   //    Le rang est calculé parmi les hauteurs distinctes jouées autour de la note (±5 s) :
   //    un passage grave utilise tout le manche autant qu'un passage aigu.
-  const lanesOf: number[] = [];
-  for (let i = 0; i < kept.length; i++) {
+  //    6 bis. Batterie : couloirs par quantiles du « centre de gravité » du spectre de la frappe
+  //    (grave = grosse caisse à gauche, brillant = cymbales à droite).
+  const lanesOf: number[] = part.pitchBand ? [] : drumLanes(mix, sampleRate, kept, lanes);
+  for (let i = 0; part.pitchBand && i < kept.length; i++) {
     const midi = kept[i].midi;
     if (midi === null) {
       lanesOf.push(lanesOf[i - 1] ?? Math.floor(lanes / 2)); // hauteur introuvable : on reste sur place
@@ -173,6 +254,52 @@ export function generateChart(samples: Float32Array, sampleRate: number, difficu
 }
 
 /**
+ * Couloirs de batterie selon le « centre de gravité » du spectre de la frappe (centroïde, en Hz),
+ * sur une échelle fixe et logarithmique de 100 Hz à 8 kHz : un même fût tombe toujours sur
+ * la même touche, du début à la fin du morceau (grosse caisse à gauche, cymbales à droite).
+ */
+const DRUM_LOW_HZ = 100;
+const DRUM_HIGH_HZ = 8000;
+function drumLanes(mix: Float32Array, sampleRate: number, hits: { sample: number }[], lanes: number): number[] {
+  const size = sampleRate >= 32000 ? 2048 : 1024; // fenêtre courte : une frappe dure peu
+  const hann = new Float64Array(size).map((_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / size));
+  return hits.map(({ sample }) => {
+    const magnitude = spectrum(mix, sample, hann);
+    let weighted = 0;
+    let total = 0;
+    for (let k = 1; k < magnitude.length; k++) {
+      weighted += k * magnitude[k];
+      total += magnitude[k];
+    }
+    const hz = total ? (weighted / total) * (sampleRate / size) : DRUM_LOW_HZ;
+    const position = Math.log(Math.max(hz, DRUM_LOW_HZ) / DRUM_LOW_HZ) / Math.log(DRUM_HIGH_HZ / DRUM_LOW_HZ);
+    return Math.min(lanes - 1, Math.floor(position * lanes));
+  });
+}
+
+/**
+ * Filtre biquadratique (formules RBJ « Audio EQ Cookbook », pente 12 dB par octave).
+ * Même calcul que le BiquadFilterNode de la Web Audio API, mais synchrone : la partition
+ * se génère sans attendre un OfflineAudioContext et se teste sans navigateur.
+ */
+function biquad(input: Float32Array, sampleRate: number, type: 'lowpass' | 'highpass', hz: number): Float32Array {
+  const w = (2 * Math.PI * hz) / sampleRate;
+  const cos = Math.cos(w);
+  const alpha = Math.sin(w) / (2 * Math.SQRT1_2); // Q = 0,707 : pas de bosse à la coupure
+  const [b0, b1, b2] = type === 'lowpass' ? [(1 - cos) / 2, 1 - cos, (1 - cos) / 2] : [(1 + cos) / 2, -(1 + cos), (1 + cos) / 2];
+  const [a0, a1, a2] = [1 + alpha, -2 * cos, 1 - alpha];
+  const output = new Float32Array(input.length);
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < input.length; i++) {
+    const x = input[i];
+    const y = (b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0;
+    output[i] = y;
+    [x2, x1, y2, y1] = [x1, x, y1, y];
+  }
+  return output;
+}
+
+/**
  * Prépare une mesure de hauteur sur une bande de fréquences.
  * La fonction renvoyée prend un instant (en échantillons) et rend la note dominante
  * (numéro MIDI arrondi au demi-ton : 69 = La 440 Hz) et l'énergie de la bande, ou `null` sur un silence.
@@ -182,7 +309,8 @@ export function generateChart(samples: Float32Array, sampleRate: number, difficu
  * même quand une harmonique est plus forte qu'elle (fréquent sur une guitare ou une voix).
  */
 function pitchAnalyser(samples: Float32Array, sampleRate: number, band: { minHz: number; maxHz: number }) {
-  const size = sampleRate >= 32000 ? 4096 : 2048; // ≈ 93 ms : assez long pour séparer deux demi-tons graves
+  // ≈ 93 ms ; 186 ms pour la basse, dont les demi-tons ne sont espacés que de 2 à 3 Hz.
+  const size = (sampleRate >= 32000 ? 4096 : 2048) * (band.minHz < 80 ? 2 : 1);
   const hann = new Float64Array(size).map((_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / size));
   const kMin = Math.max(1, Math.ceil((band.minHz * size) / sampleRate));
   const kMax = Math.min(Math.floor((band.maxHz * size) / sampleRate), Math.floor((size / 2 - 1) / 3));
@@ -299,8 +427,8 @@ export function grade(accuracy: number): string {
 
 /** Multiplicateur plafonné comme dans Fortnite Festival : x1 → x4, un palier toutes les 10 notes d'affilée. */
 export const MAX_MULTIPLIER = 4;
-export function multiplierFor(combo: number): number {
-  return Math.min(MAX_MULTIPLIER, Math.floor(combo / 10) + 1);
+export function multiplierFor(combo: number, max = MAX_MULTIPLIER): number {
+  return Math.min(max, Math.floor(combo / 10) + 1);
 }
 
 /** Points d'un Perfect, avant multiplicateur. Un Good rapporte un forfait de 50 points. */
@@ -313,9 +441,9 @@ export const SUSTAIN_POINTS_PER_S = 50;
  * Score maximal d'une partition : toutes les notes en Perfect d'affilée, maintiens tenus jusqu'au bout.
  * L'Overdrive n'est pas compté : c'est un bonus qui permet de dépasser ce score.
  */
-export function maxScore(notes: readonly ChartNote[]): number {
+export function maxScore(notes: readonly ChartNote[], maxMultiplier = MAX_MULTIPLIER): number {
   return notes.reduce(
-    (total, note, i) => total + multiplierFor(i) * (PERFECT_POINTS + (note.durationMs / 1000) * SUSTAIN_POINTS_PER_S),
+    (total, note, i) => total + multiplierFor(i, maxMultiplier) * (PERFECT_POINTS + (note.durationMs / 1000) * SUSTAIN_POINTS_PER_S),
     0,
   );
 }

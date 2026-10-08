@@ -9,7 +9,7 @@ import crypto from "node:crypto";
 import { User } from "./models/User.js";
 import { Track } from "./models/Track.js";
 import mongoose from "mongoose";
-import { DIFFICULTIES, Score } from "./models/Score.js";
+import { DIFFICULTIES, INSTRUMENTS, Score } from "./models/Score.js";
 import { AVATARS, avatarById, coinsFor, STARTER_AVATAR } from "./avatars.js";
 
 // Les fichiers audio restent sur le disque du serveur dans ce TP.
@@ -493,20 +493,23 @@ export function createApp() {
 
   /**
    * Enregistre le résultat d'une partie. Seul le meilleur score par (joueur, morceau,
-   * difficulté) est conservé : `best` indique si cette partie bat le record.
+   * difficulté, instrument) est conservé : `best` indique si cette partie bat le record.
    * Les types et bornes sont vérifiés AVANT la base. Limite assumée : la partition
    * étant générée dans le navigateur, le serveur ne peut pas recalculer le score ;
    * il refuse seulement les valeurs impossibles (négatives, hors bornes, non entières).
    */
   app.post("/api/scores", auth, async (req, res, next) => {
     try {
-      const { trackId, difficulty, score, stars, accuracy, maxCombo } = req.body ?? {};
+      const { trackId, difficulty, instrument = "lead", score, stars, accuracy, maxCombo } = req.body ?? {};
       const isCount = (value, max) => Number.isInteger(value) && value >= 0 && value <= max;
       if (!mongoose.isValidObjectId(trackId)) {
         return res.status(400).json({ message: "Morceau invalide" });
       }
       if (!DIFFICULTIES.includes(difficulty)) {
         return res.status(400).json({ message: "Difficulté invalide" });
+      }
+      if (!INSTRUMENTS.includes(instrument)) {
+        return res.status(400).json({ message: "Instrument invalide" });
       }
       if (!isCount(score, 10_000_000) || !isCount(stars, 5) || !isCount(accuracy, 100) || !isCount(maxCombo, 100_000)) {
         return res.status(400).json({ message: "Résultat de partie invalide" });
@@ -523,7 +526,7 @@ export function createApp() {
       const player = await User.findByIdAndUpdate(req.auth.sub, { $inc: { coins: coinsEarned } }, { new: true });
       const coins = player?.coins ?? 0;
 
-      const key = { userId: req.auth.sub, trackId, difficulty };
+      const key = { userId: req.auth.sub, trackId, difficulty, instrument };
       const previous = await Score.findOne(key);
       if (previous && previous.score >= score) {
         return res.json({ best: false, record: previous.toPublic(), coinsEarned, coins });

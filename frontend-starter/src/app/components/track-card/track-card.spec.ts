@@ -120,7 +120,7 @@ describe('TrackCardComponent', () => {
   it('affiche le record et ses étoiles quand le joueur a déjà joué', async () => {
     expect(host().querySelector('.best')).toBeNull();
     fixture.componentRef.setInput('best', {
-      id: 's1', trackId: 'track-1', difficulty: 'expert', score: 4200, stars: 3, accuracy: 90, maxCombo: 50, updatedAt: '',
+      id: 's1', trackId: 'track-1', difficulty: 'expert', instrument: 'lead', score: 4200, stars: 3, accuracy: 90, maxCombo: 50, updatedAt: '',
     });
     await fixture.whenStable();
 

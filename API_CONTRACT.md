@@ -16,7 +16,7 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | GET | `/tracks/:id/audio` | JWT | flux audio |
 | PATCH | `/tracks/:id` | `{title?, description?}` + JWT | `200 Track` |
 | DELETE | `/tracks/:id` | JWT | `204` (bonus) ; supprime aussi les records du morceau |
-| POST | `/scores` | `{trackId, difficulty, score, stars, accuracy, maxCombo}` + JWT | `201 {best: true, record}` ou `200 {best: false, record}` |
+| POST | `/scores` | `{trackId, difficulty, instrument?, score, stars, accuracy, maxCombo}` + JWT | `201 {best: true, record}` ou `200 {best: false, record}` |
 | GET | `/scores/me` | JWT | `200 ScoreRecord[]` |
 | GET | `/scores/leaderboard?difficulty=&limit=20` | JWT | `200 LeaderboardEntry[]` |
 | GET | `/shop/avatars` | JWT | `200 Avatar[]` |
@@ -29,7 +29,7 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 
 Chaque `POST /scores` crédite `floor(score / 100) + 10 × stars` points ; la réponse contient aussi `coinsEarned` et `coins` (nouveau solde).
 
-`ScoreRecord` contient `id`, `trackId`, `difficulty` (`easy`, `medium`, `hard`, `expert`), `score`, `stars` (0 à 5), `accuracy` (0 à 100), `maxCombo` et `updatedAt`. Seul le meilleur score par joueur, morceau et difficulté est conservé. `POST /scores` exige des entiers positifs (`400` sinon) et un morceau appartenant au joueur (`404` sinon).
+`ScoreRecord` contient `id`, `trackId`, `difficulty` (`easy`, `medium`, `hard`, `expert`), `instrument` (`lead` par défaut, `bass`, `drums`, `vocals`), `score`, `stars` (0 à 5), `accuracy` (0 à 100), `maxCombo` et `updatedAt`. Seul le meilleur score par joueur, morceau, difficulté et instrument est conservé. `POST /scores` exige des entiers positifs (`400` sinon) et un morceau appartenant au joueur (`404` sinon).
 
 `LeaderboardEntry` contient `rank`, `name`, `avatar`, `total` (somme des records), `stars`, `played` et `isMe` (vrai pour le joueur connecté). `difficulty` est facultatif (toutes difficultés par défaut, `400` si inconnue) ; `limit` va de 1 à 50.
 

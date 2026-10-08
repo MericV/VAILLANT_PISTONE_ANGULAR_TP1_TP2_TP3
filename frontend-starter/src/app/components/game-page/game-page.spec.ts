@@ -269,7 +269,7 @@ describe('GamePageComponent', () => {
   });
 
   describe('enregistrement du score', () => {
-    const record = { id: 's1', trackId: 'track-1', difficulty: 'hard' as const, score: 250, stars: 3, accuracy: 100, maxCombo: 1, updatedAt: '' };
+    const record = { id: 's1', trackId: 'track-1', difficulty: 'hard' as const, instrument: 'lead' as const, score: 250, stars: 3, accuracy: 100, maxCombo: 1, updatedAt: '' };
     /** Fin du morceau : le navigateur appelle `onended` sur la source audio. */
     const endSong = () => audio.createBufferSource.mock.results.at(-1)!.value.onended();
 
@@ -285,7 +285,7 @@ describe('GamePageComponent', () => {
       await fixture.whenStable();
 
       expect(scores.submit).toHaveBeenCalledWith({
-        trackId: 'track-1', difficulty: 'hard', score: 251, stars: expect.any(Number), accuracy: 100, maxCombo: 1,
+        trackId: 'track-1', difficulty: 'hard', instrument: 'lead', score: 251, stars: expect.any(Number), accuracy: 100, maxCombo: 1,
       });
       expect(Number.isInteger(scores.submit.mock.calls[0][0].stars)).toBe(true);
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nouveau record !');
@@ -332,6 +332,34 @@ describe('GamePageComponent', () => {
       await fixture.whenStable();
       expect(scores.submit).toHaveBeenCalledTimes(2);
       expect(component.saved()?.best).toBe(true);
+    });
+  });
+
+  describe('instruments', () => {
+    it('basse : multiplicateur jusqu’à x6 et barre de combo en 5 segments', async () => {
+      await create();
+      component.instrument.set('bass');
+      await component.start();
+
+      component.combo.set(55);
+      await fixture.whenStable();
+
+      expect(component.multiplier()).toBe(6);
+      expect(component.comboSegments()).toHaveLength(5);
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('.segment')).toHaveLength(5);
+    });
+
+    it('enregistre le score avec l’instrument joué', async () => {
+      scores.submit.mockReturnValue(of({ best: true, record: { id: 's', trackId: 'track-1', difficulty: 'medium', instrument: 'drums',
+        score: 0, stars: 0, accuracy: 100, maxCombo: 0, updatedAt: '' }, coinsEarned: 0, coins: 0 }));
+      await create();
+      component.instrument.set('drums');
+      await component.start();
+      component.instrument.set('vocals'); // changer le choix après coup ne change pas la partie jouée
+
+      audio.createBufferSource.mock.results.at(-1)!.value.onended();
+
+      expect(scores.submit.mock.calls[0][0].instrument).toBe('drums');
     });
   });
 });
