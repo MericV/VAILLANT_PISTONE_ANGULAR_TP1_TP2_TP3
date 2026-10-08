@@ -1,8 +1,9 @@
 import { Component, computed, input, output } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Track } from '../../shared/models/track.model';
+import { ScoreRecord } from '../../shared/models/score.model';
 import { FileSizePipe } from '../../shared/pipes/file-size.pipe';
 import { audioFormatLabel } from '../../shared/utils/audio-file';
 
@@ -17,7 +18,7 @@ export type TrackChanges = Pick<Track, 'title' | 'description'>;
  */
 @Component({
   selector: 'app-track-card',
-  imports: [DatePipe, FileSizePipe, RouterLink, ReactiveFormsModule],
+  imports: [DatePipe, DecimalPipe, FileSizePipe, RouterLink, ReactiveFormsModule],
   templateUrl: './track-card.html',
   styleUrl: './track-card.css',
 })
@@ -38,6 +39,10 @@ export class TrackCardComponent {
   readonly editing = input(false);
   /** Vrai pendant la requête PATCH de cette piste. */
   readonly saving = input(false);
+  /** Meilleur score du joueur sur ce morceau, ou `null` s'il n'y a jamais joué. */
+  readonly best = input<ScoreRecord | null>(null);
+  /** Cinq étoiles, pleines jusqu'au nombre gagné : affichage seulement. */
+  readonly bestStars = computed(() => [1, 2, 3, 4, 5].map((n) => n <= (this.best()?.stars ?? 0)));
 
   readonly play = output<Track>();
   readonly remove = output<Track>();

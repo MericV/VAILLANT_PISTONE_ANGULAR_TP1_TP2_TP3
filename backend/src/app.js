@@ -8,6 +8,8 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { User } from "./models/User.js";
 import { Track } from "./models/Track.js";
+import mongoose from "mongoose";
+import { DIFFICULTIES, Score } from "./models/Score.js";
 
 // Les fichiers audio restent sur le disque du serveur dans ce TP.
 // MongoDB ne conserve que leurs métadonnées : titre, nom, taille, etc.
@@ -465,6 +467,9 @@ export function createApp() {
         return res.status(404).json({ message: "Piste inconnue" });
       }
 
+      // Les records de ce morceau disparaissent avec lui : le classement ne compte que des morceaux existants.
+      await Score.deleteMany({ trackId: track._id });
+
       const audioPath = path.join(UPLOADS, track.storedName);
       try {
         await fsPromises.unlink(audioPath);
@@ -481,6 +486,108 @@ export function createApp() {
       res.status(204).end();
     } catch (error) {
       console.error("[tracks] Erreur de suppression", error);
+      next(error);
+    }
+  });
+
+  /**
+   * Enregistre le résultat d'une partie. Seul le meilleur score par (joueur, morceau,
+   * difficulté) est conservé : `best` indique si cette partie bat le record.
+   * Les types et bornes sont vérifiés AVANT la base. Limite assumée : la partition
+   * étant générée dans le navigateur, le serveur ne peut pas recalculer le score ;
+   * il refuse seulement les valeurs impossibles (négatives, hors bornes, non entières).
+   */
+  app.post("/api/scores", auth, async (req, res, next) => {
+    try {
+      const { trackId, difficulty, score, stars, accuracy, maxCombo } = req.body ?? {};
+      const isCount = (value, max) => Number.isInteger(value) && value >= 0 && value <= max;
+      if (!mongoose.isValidObjectId(trackId)) {
+        return res.status(400).json({ message: "Morceau invalide" });
+      }
+      if (!DIFFICULTIES.includes(difficulty)) {
+        return res.status(400).json({ message: "Difficulté invalide" });
+      }
+      if (!isCount(score, 10_000_000) || !isCount(stars, 5) || !isCount(accuracy, 100) || !isCount(maxCombo, 100_000)) {
+        return res.status(400).json({ message: "Résultat de partie invalide" });
+      }
+
+      // On ne note que ses propres morceaux (ils sont privés).
+      const track = await Track.exists({ _id: trackId, ownerId: req.auth.sub });
+      if (!track) {
+        return res.status(404).json({ message: "Piste inconnue" });
+      }
+
+      const key = { userId: req.auth.sub, trackId, difficulty };
+      const previous = await Score.findOne(key);
+      if (previous && previous.score >= score) {
+        return res.json({ best: false, record: previous.toPublic() });
+      }
+      const record = await Score.findOneAndUpdate(
+        key,
+        { $set: { score, stars, accuracy, maxCombo } },
+        { new: true, upsert: true, runValidators: true },
+      );
+      console.log(`[scores] Nouveau record ${score} sur ${trackId} (${difficulty}) par ${req.auth.sub}`);
+      res.status(201).json({ best: true, record: record.toPublic() });
+    } catch (error) {
+      console.error("[scores] Erreur d'enregistrement", error);
+      next(error);
+    }
+  });
+
+  /** Records du joueur connecté : un par morceau et difficulté joués. */
+  app.get("/api/scores/me", auth, async (req, res, next) => {
+    try {
+      const records = await Score.find({ userId: req.auth.sub }).sort({ score: -1 });
+      res.json(records.map((record) => record.toPublic()));
+    } catch (error) {
+      console.error("[scores] Erreur de lecture des records", error);
+      next(error);
+    }
+  });
+
+  /**
+   * Classement général : pour chaque joueur, somme de ses records (optionnellement
+   * d'une seule difficulté), triée du plus grand au plus petit. Le calcul est fait
+   * par MongoDB (pipeline d'agrégation) : seules les 50 premières lignes voyagent.
+   */
+  app.get("/api/scores/leaderboard", auth, async (req, res, next) => {
+    try {
+      const { difficulty } = req.query;
+      if (difficulty !== undefined && !DIFFICULTIES.includes(difficulty)) {
+        return res.status(400).json({ message: "Difficulté invalide" });
+      }
+      const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+
+      const rows = await Score.aggregate([
+        { $match: difficulty ? { difficulty } : {} },
+        {
+          $group: {
+            _id: "$userId",
+            total: { $sum: "$score" },
+            stars: { $sum: "$stars" },
+            played: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1, _id: 1 } },
+        { $limit: limit },
+        // Jointure avec les utilisateurs pour afficher le nom (jamais l'email).
+        { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "user" } },
+        { $unwind: "$user" },
+      ]);
+
+      res.json(
+        rows.map((row, index) => ({
+          rank: index + 1,
+          name: row.user.name,
+          total: row.total,
+          stars: row.stars,
+          played: row.played,
+          isMe: String(row._id) === req.auth.sub,
+        })),
+      );
+    } catch (error) {
+      console.error("[scores] Erreur de calcul du classement", error);
       next(error);
     }
   });

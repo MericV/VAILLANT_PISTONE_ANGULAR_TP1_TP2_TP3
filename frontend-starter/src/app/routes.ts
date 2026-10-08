@@ -17,5 +17,10 @@ export const routes: Routes = [
     loadComponent: () => import('./components/game-page/game-page').then((m) => m.GamePageComponent),
     canActivate: [authGuard],
   },
+  {
+    path: 'leaderboard',
+    loadComponent: () => import('./components/leaderboard-page/leaderboard-page').then((m) => m.LeaderboardPageComponent),
+    canActivate: [authGuard],
+  },
   { path: '**', redirectTo: 'tracks' },
 ];

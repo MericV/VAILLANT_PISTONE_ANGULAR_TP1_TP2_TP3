@@ -122,6 +122,10 @@ button.pad:not([class*='mat-']):active { color: #140a33; background: var(--lane)
 .result dt { color: var(--muted); font-size: 0.8rem; }
 .result dd { margin: 0; font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .actions { display: grid; gap: 0.5rem; }
+.save { min-height: 1.75rem; margin-top: 0.5rem; }
+/* Record battu : le seul moment doré de l'écran de résultats. */
+.record { margin: 0; color: var(--gold); font-size: 1.2rem; font-style: italic; font-weight: 900; font-stretch: 120%; text-shadow: 0 0 12px rgb(255 201 60 / 0.6); }
+.ghost-link { padding: 0.5rem; color: var(--link); text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .feedback { animation: none; opacity: 0; }

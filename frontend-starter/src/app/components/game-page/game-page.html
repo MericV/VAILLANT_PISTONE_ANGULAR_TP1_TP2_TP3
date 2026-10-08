@@ -63,6 +63,23 @@
           }
         </p>
         <p class="final-score">{{ displayScore() }}</p>
+        <!-- Enregistrement en ligne : record battu, record à battre, ou erreur avec nouvel essai. -->
+        <div class="save" aria-live="polite">
+          @if (save().status === 'saving') {
+            <p class="hint">Enregistrement du score…</p>
+          }
+          @if (saved(); as result) {
+            @if (result.best) {
+              <p class="record">Nouveau record !</p>
+            } @else {
+              <p class="hint">Record à battre : {{ result.record.score }}</p>
+            }
+          }
+          @if (saveError()) {
+            <p class="error" role="alert">{{ saveError() }}</p>
+            <button type="button" class="ghost" (click)="saveScore()">Réessayer l’enregistrement</button>
+          }
+        </div>
         <dl>
           <div><dt>Note</dt><dd>{{ finalGrade() }}</dd></div>
           <div><dt>Perfect</dt><dd>{{ counts().perfect }}</dd></div>
@@ -74,6 +91,7 @@
         <div class="actions">
           <button type="button" class="go" (click)="start()">Rejouer</button>
           <button type="button" class="ghost" (click)="phase.set('ready')">Changer de difficulté</button>
+          <a class="ghost-link" routerLink="/leaderboard">Voir le classement</a>
         </div>
       </div>
     }

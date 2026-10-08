@@ -3,6 +3,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TrackService } from '../../shared/services/track.service';
+import { ScoreService } from '../../shared/services/score.service';
+import { ScoreRecord } from '../../shared/models/score.model';
 import {
   Difficulty,
   DIFFICULTIES,
@@ -57,6 +59,13 @@ const OVERDRIVE_DRAIN_PER_S = 1 / 16;
 
 type Phase = 'loading' | 'ready' | 'playing' | 'finished' | 'error';
 
+/** Enregistrement du score en fin de partie : un état à la fois, comme pour l'upload. */
+export type SaveState =
+  | { status: 'idle' }
+  | { status: 'saving' }
+  | { status: 'saved'; best: boolean; record: ScoreRecord }
+  | { status: 'error'; message: string };
+
 /**
  * Jeu de rythme façon Guitar Hero / Fortnite Festival sur un morceau de la bibliothèque.
  * Flux : TrackService.audio() → Blob → decodeAudioData → generateChart() → partie.
@@ -70,6 +79,7 @@ type Phase = 'loading' | 'ready' | 'playing' | 'finished' | 'error';
 })
 export class GamePageComponent implements OnDestroy {
   private readonly service = inject(TrackService);
+  private readonly scores = inject(ScoreService);
   private readonly trackId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
   private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('stage');
 
@@ -127,6 +137,19 @@ export class GamePageComponent implements OnDestroy {
   readonly starFills = computed(() => [0, 1, 2, 3, 4].map((i) => Math.min(1, Math.max(0, this.stars() - i))));
   readonly starsLabel = computed(() => `${Math.floor(this.stars())} étoile(s) sur 5`);
 
+  readonly save = signal<SaveState>({ status: 'idle' });
+  /** Vues simples de l'état d'enregistrement pour le template. */
+  readonly saved = computed(() => {
+    const state = this.save();
+    return state.status === 'saved' ? state : null;
+  });
+  readonly saveError = computed(() => {
+    const state = this.save();
+    return state.status === 'error' ? state.message : '';
+  });
+  /** Difficulté de la partie jouée : le joueur peut changer le choix pendant l'écran de résultats. */
+  private playedDifficulty: Difficulty = 'medium';
+
   private audio?: AudioContext;
   private samples?: Float32Array;
   private buffer?: AudioBuffer;
@@ -174,7 +197,9 @@ export class GamePageComponent implements OnDestroy {
     this.stopMusic();
     await audio.resume(); // l'audio n'est autorisé qu'après un geste de l'utilisateur
 
-    const settings = DIFFICULTIES[this.difficulty()];
+    this.playedDifficulty = this.difficulty();
+    this.save.set({ status: 'idle' });
+    const settings = DIFFICULTIES[this.playedDifficulty];
     this.laneCount = settings.lanes;
     this.visibleMs = settings.visibleMs / this.trackSpeed();
     this.notes = generateChart(this.samples, this.buffer.sampleRate, this.difficulty()).map((n) => ({
@@ -465,6 +490,30 @@ export class GamePageComponent implements OnDestroy {
     if (this.phase() !== 'playing') return;
     cancelAnimationFrame(this.frame);
     this.phase.set('finished');
+    this.saveScore();
+  }
+
+  /**
+   * Envoie le résultat au serveur (entiers uniquement, comme l'exige l'API).
+   * Public : le bouton « Réessayer » le rappelle si l'enregistrement a échoué.
+   */
+  saveScore(): void {
+    if (this.save().status === 'saving') return;
+    this.save.set({ status: 'saving' });
+    this.scores
+      .submit({
+        trackId: this.trackId,
+        difficulty: this.playedDifficulty,
+        score: this.displayScore(),
+        stars: Math.floor(this.stars()),
+        accuracy: this.accuracy(),
+        maxCombo: this.maxCombo(),
+      })
+      .subscribe({
+        next: ({ best, record }) => this.save.set({ status: 'saved', best, record }),
+        error: (error: unknown) =>
+          this.save.set({ status: 'error', message: httpErrorMessage(error, 'Score non enregistré.') }),
+      });
   }
 
   private stopMusic(): void {

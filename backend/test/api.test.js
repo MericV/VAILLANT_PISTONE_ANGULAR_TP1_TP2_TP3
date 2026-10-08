@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { createApp } from "../src/app.js";
 import { User } from "../src/models/User.js";
 import { Track } from "../src/models/Track.js";
+import { Score } from "../src/models/Score.js";
 
 let server, base;
 
@@ -153,4 +154,69 @@ test("schéma : description vide par défaut et longueurs maximales", async () =
   assert.ok(errors.title);
   assert.ok(errors.description);
   assert.equal(new Track({}).description, "");
+});
+
+/*
+ * Scores : contrat et validations rejetés AVANT MongoDB.
+ */
+const postScore = (body, token = validToken()) =>
+  fetch(base + "/api/scores", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+const validResult = () => ({
+  trackId: new mongoose.Types.ObjectId().toString(),
+  difficulty: "hard",
+  score: 12345,
+  stars: 4,
+  accuracy: 92,
+  maxCombo: 57,
+});
+
+test("scores : 401 sans JWT sur les trois routes", async () => {
+  for (const [method, url] of [
+    ["POST", "/api/scores"],
+    ["GET", "/api/scores/me"],
+    ["GET", "/api/scores/leaderboard"],
+  ]) {
+    const r = await fetch(base + url, { method });
+    assert.equal(r.status, 401, `${method} ${url}`);
+  }
+});
+
+test("POST score : 400 si le morceau n'est pas un identifiant", async () => {
+  const r = await postScore({ ...validResult(), trackId: "pas-un-id" });
+  assert.equal(r.status, 400);
+  assert.equal((await r.json()).message, "Morceau invalide");
+});
+
+test("POST score : 400 si la difficulté est inconnue", async () => {
+  const r = await postScore({ ...validResult(), difficulty: "legendary" });
+  assert.equal(r.status, 400);
+  assert.equal((await r.json()).message, "Difficulté invalide");
+});
+
+test("POST score : 400 pour des valeurs impossibles", async () => {
+  for (const invalid of [{ score: -1 }, { score: 10.5 }, { score: "999" }, { stars: 6 }, { accuracy: 101 }, { maxCombo: null }]) {
+    const r = await postScore({ ...validResult(), ...invalid });
+    assert.equal(r.status, 400, JSON.stringify(invalid));
+    assert.equal((await r.json()).message, "Résultat de partie invalide");
+  }
+});
+
+test("classement : 400 si la difficulté filtrée est inconnue", async () => {
+  const r = await fetch(base + "/api/scores/leaderboard?difficulty=legendary", {
+    headers: { Authorization: `Bearer ${validToken()}` },
+  });
+  assert.equal(r.status, 400);
+});
+
+test("schéma Score : un seul record par joueur, morceau et difficulté", async () => {
+  const unique = Score.schema.indexes().find(([fields]) => fields.userId && fields.trackId && fields.difficulty);
+  assert.ok(unique, "index composé attendu");
+  assert.equal(unique[1].unique, true);
+  const { errors } = await new Score({ difficulty: "legendary", stars: 9 }).validate().catch((e) => e);
+  assert.ok(errors.difficulty);
+  assert.ok(errors.stars);
 });

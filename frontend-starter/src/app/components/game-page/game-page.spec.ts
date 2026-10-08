@@ -4,6 +4,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { of, throwError } from 'rxjs';
 import { GamePageComponent } from './game-page';
 import { TrackService } from '../../shared/services/track.service';
+import { ScoreService } from '../../shared/services/score.service';
 import { GameNote } from '../../shared/utils/beatmap';
 
 const RATE = 44100;
@@ -35,6 +36,7 @@ describe('GamePageComponent', () => {
   let component: GamePageComponent;
   let audio: FakeAudioContext;
   let service: { audio: ReturnType<typeof vi.fn> };
+  let scores: { submit: ReturnType<typeof vi.fn> };
 
   async function create(): Promise<void> {
     TestBed.configureTestingModule({
@@ -42,6 +44,7 @@ describe('GamePageComponent', () => {
       providers: [
         provideRouter([]),
         { provide: TrackService, useValue: service },
+        { provide: ScoreService, useValue: scores },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'track-1' }) } } },
       ],
     });
@@ -61,6 +64,7 @@ describe('GamePageComponent', () => {
     vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
     service = { audio: vi.fn(() => of(new Blob(['x'], { type: 'audio/mpeg' }))) };
+    scores = { submit: vi.fn() };
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -255,6 +259,60 @@ describe('GamePageComponent', () => {
       at(1000);
       key('keydown', 't');
       expect(component.counts().perfect).toBe(1);
+    });
+  });
+
+  describe('enregistrement du score', () => {
+    const record = { id: 's1', trackId: 'track-1', difficulty: 'hard' as const, score: 250, stars: 3, accuracy: 100, maxCombo: 1, updatedAt: '' };
+    /** Fin du morceau : le navigateur appelle `onended` sur la source audio. */
+    const endSong = () => audio.createBufferSource.mock.results.at(-1)!.value.onended();
+
+    it('envoie un résultat entier à la fin du morceau et annonce un nouveau record', async () => {
+      scores.submit.mockReturnValue(of({ best: true, record }));
+      await create();
+      component.difficulty.set('hard');
+      await component.start();
+      component.score.set(250.6); // les maintiens donnent des points décimaux
+      component.maxCombo.set(1);
+
+      endSong();
+      await fixture.whenStable();
+
+      expect(scores.submit).toHaveBeenCalledWith({
+        trackId: 'track-1', difficulty: 'hard', score: 251, stars: expect.any(Number), accuracy: 100, maxCombo: 1,
+      });
+      expect(Number.isInteger(scores.submit.mock.calls[0][0].stars)).toBe(true);
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nouveau record !');
+    });
+
+    it('affiche le record à battre quand la partie ne le bat pas', async () => {
+      scores.submit.mockReturnValue(of({ best: false, record: { ...record, score: 9000 } }));
+      await create();
+      await component.start();
+
+      endSong();
+      await fixture.whenStable();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Record à battre : 9000');
+    });
+
+    it('propose de réessayer si l’enregistrement échoue', async () => {
+      scores.submit.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })));
+      scores.submit.mockReturnValueOnce(of({ best: true, record }));
+      await create();
+      await component.start();
+
+      endSong();
+      await fixture.whenStable();
+      const retry = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('Réessayer'),
+      )!;
+      expect(component.saveError()).not.toBe('');
+
+      retry.click();
+      await fixture.whenStable();
+      expect(scores.submit).toHaveBeenCalledTimes(2);
+      expect(component.saved()?.best).toBe(true);
     });
   });
 });
