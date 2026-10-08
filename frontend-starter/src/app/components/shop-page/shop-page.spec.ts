@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { of, Subject, throwError } from 'rxjs';
 import { ShopPageComponent } from './shop-page';
 import { ShopService } from '../../shared/services/shop.service';
@@ -44,6 +45,8 @@ describe('ShopPageComponent', () => {
         { provide: ShopService, useValue: shop },
         { provide: AuthService, useValue: auth },
         { provide: MatSnackBar, useValue: snackBar },
+        // jsdom ne termine jamais les animations CSS : sans cela, l'onglet ne change pas de contenu.
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
       ],
     });
     fixture = TestBed.createComponent(ShopPageComponent);
@@ -55,18 +58,36 @@ describe('ShopPageComponent', () => {
     expect(host().querySelector('.balance')?.textContent).toContain('500');
     expect(statuses(0)).toEqual(['equipped', 'affordable', 'owned', 'locked']);
     expect(statuses(1)).toEqual(['equipped', 'affordable', 'locked']);
-    expect(host().textContent).toContain('Fonds de scène');
-    expect(host().textContent).toContain('Encore 1,000 points à gagner'); // Dragon : 1500 - 500
+    expect(host().textContent).toContain('Encore 1,000 points'); // Dragon : 1500 - 500
   });
 
-  it('affiche un aperçu de chaque fond avec ses couleurs', () => {
+  /** Ouvre l'onglet « Fonds de scène » comme le ferait un clic. */
+  async function openBackgrounds(): Promise<void> {
+    (host().querySelectorAll<HTMLElement>('[role="tab"]')[1]).click();
+    await fixture.whenStable();
+  }
+
+  it('présente les rayons en onglets : un seul rayon affiché à la fois', async () => {
+    const tabs = [...host().querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim());
+    expect(tabs).toEqual(['Avatars', 'Fonds de scène']);
+    expect(host().querySelectorAll('.preview')).toHaveLength(0); // onglet Avatars ouvert
+
+    await openBackgrounds();
+
+    expect(component.tab()).toBe(1);
+    expect(host().querySelectorAll('app-avatar-badge')).toHaveLength(0);
+  });
+
+  it('affiche un aperçu de chaque fond avec ses couleurs', async () => {
+    await openBackgrounds();
     const previews = host().querySelectorAll<HTMLElement>('.preview');
     expect(previews).toHaveLength(3);
     expect(previews[1].style.getPropertyValue('--stage')).toBe('#6b1d3a');
   });
 
-  it('achète un fond abordable dans le bon rayon', () => {
+  it('achète un fond abordable dans le bon rayon', async () => {
     shop.buy.mockReturnValue(of(player(200, { backgrounds: ['stage', 'sunset'] })));
+    await openBackgrounds();
 
     button('Acheter Coucher de soleil')!.click();
 

@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { forkJoin } from 'rxjs';
 import { Avatar, Background, Shelf } from '../../shared/models/user.model';
 import { AuthService } from '../../shared/services/auth.service';
@@ -29,7 +30,7 @@ interface ShopItem {
  * puis on choisit ceux utilisés. Le serveur reste seul juge du solde et de la possession.
  */
 @Component({
-  imports: [DecimalPipe, AvatarBadgeComponent],
+  imports: [DecimalPipe, AvatarBadgeComponent, MatTabsModule],
   templateUrl: './shop-page.html',
   styleUrl: './shop-page.css',
 })
@@ -44,6 +45,9 @@ export class ShopPageComponent {
   readonly error = signal('');
   /** Article en cours d'achat ou d'équipement (`rayon/id`) : un seul à la fois. */
   readonly busyId = signal<string | null>(null);
+
+  /** Onglet affiché : 0 = avatars, 1 = fonds de scène. */
+  readonly tab = signal(0);
 
   readonly coins = computed(() => this.auth.currentUser()?.coins ?? 0);
 
