@@ -13,6 +13,18 @@ import { AvatarBadgeComponent } from '../avatar-badge/avatar-badge';
 /** État d'un article pour le joueur : il décide du bouton affiché sur sa carte. */
 export type ItemStatus = 'equipped' | 'owned' | 'affordable' | 'locked';
 
+/** Rareté d'un article, déduite de son prix : elle colore sa carte et hiérarchise le catalogue. */
+export interface Rarity {
+  key: 'common' | 'rare' | 'epic' | 'legendary';
+  label: string;
+}
+export function rarityOf(price: number): Rarity {
+  if (price >= 2000) return { key: 'legendary', label: 'Légendaire' };
+  if (price >= 800) return { key: 'epic', label: 'Épique' };
+  if (price >= 300) return { key: 'rare', label: 'Rare' };
+  return { key: 'common', label: 'Commun' };
+}
+
 /** Article d'un rayon, prêt à afficher. `avatar` ou `background` selon le rayon. */
 interface ShopItem {
   shelf: Shelf;
@@ -20,7 +32,9 @@ interface ShopItem {
   name: string;
   price: number;
   status: ItemStatus;
-  missing: number;
+  rarity: Rarity;
+  /** Part du prix déjà gagnée (0 à 1), pour la barre de progression d'un article verrouillé. */
+  progress: number;
   avatar?: Avatar;
   background?: Background;
 }
@@ -65,7 +79,8 @@ export class ShopPageComponent {
       name: base.name,
       price: base.price,
       status: status(shelf, base.id, base.price),
-      missing: Math.max(0, base.price - this.coins()),
+      rarity: rarityOf(base.price),
+      progress: base.price ? Math.min(1, this.coins() / base.price) : 1,
     });
     return [
       { key: 'avatars' as const, title: 'Avatars', items: this.avatars().map((a): ShopItem => ({ ...item('avatars', a), avatar: a })) },

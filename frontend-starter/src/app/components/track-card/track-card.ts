@@ -14,7 +14,8 @@ export type TrackChanges = Pick<Track, 'title' | 'description'>;
  * Card de présentation d'une piste.
  * Composant « présentationnel » : il ne connaît ni HttpClient ni TrackService.
  * Il reçoit des données par `input()` et signale les actions par `output()` ;
- * c'est la page parente qui décide quoi faire (lecture, suppression, modification).
+ * c'est la page parente qui décide quoi faire (lecture, modification, suppression).
+ * « Supprimer » est rangé dans le formulaire « Modifier » : moins de boutons sur chaque carte.
  */
 @Component({
   selector: 'app-track-card',

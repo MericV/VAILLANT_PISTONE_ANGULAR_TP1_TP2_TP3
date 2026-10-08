@@ -15,6 +15,16 @@
         <div class="edit-actions">
           <button type="submit">{{ saving() ? 'Enregistrement…' : 'Enregistrer' }}</button>
           <button type="button" class="ghost" (click)="cancelEdit.emit()">Annuler</button>
+          <!-- Action rare et destructrice : rangée dans le formulaire plutôt que sur chaque carte. -->
+          <button
+            type="button"
+            class="ghost remove"
+            (click)="remove.emit(track())"
+            [disabled]="deleting()"
+            [attr.aria-label]="'Supprimer ' + track().title"
+          >
+            {{ deleting() ? 'Suppression…' : 'Supprimer' }}
+          </button>
         </div>
       </fieldset>
     </form>
@@ -67,15 +77,6 @@
         [attr.aria-label]="'Modifier ' + track().title"
       >
         Modifier
-      </button>
-      <button
-        type="button"
-        class="ghost remove"
-        (click)="remove.emit(track())"
-        [disabled]="busy()"
-        [attr.aria-label]="'Supprimer ' + track().title"
-      >
-        {{ deleting() ? 'Suppression…' : 'Supprimer' }}
       </button>
     </div>
   }

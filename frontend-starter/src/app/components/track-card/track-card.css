@@ -26,7 +26,9 @@ button.remove:not([class*='mat-']) { color: var(--error); border-color: transpar
 .track.editing { grid-template-columns: minmax(0, 1fr); padding-right: 0.75rem; border-left-color: var(--accent); background: var(--surface-alt); }
 .edit fieldset { display: grid; margin: 0; padding: 0; border: 0; min-width: 0; }
 .edit label { margin: 0.4rem 0; }
-.edit-actions { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
+.edit-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; }
+/* Supprimer à l'écart, à droite : on ne le clique pas par erreur en voulant enregistrer. */
+.edit-actions .remove { margin-left: auto; }
 
 @media (max-width: 640px) {
   .track { grid-template-columns: auto minmax(0, 1fr); padding-left: 0.5rem; }

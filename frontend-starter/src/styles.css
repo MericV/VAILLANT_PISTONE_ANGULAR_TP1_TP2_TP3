@@ -149,3 +149,26 @@ audio { width: 100%; }
     radial-gradient(55% 45% at 85% 5%, color-mix(in srgb, var(--spot-b) 28%, transparent), transparent 70%),
     linear-gradient(180deg, var(--stage) 0%, var(--stage-deep) 75%);
 }
+
+/*
+ * Page « scène » (jeu, boutique) : sort du gabarit clair du site, occupe toute la largeur
+ * et redéfinit les jetons de couleur, donc reste sombre quel que soit le thème du système.
+ * À combiner avec .stage-backdrop pour le décor.
+ */
+.stage-page {
+  --neon: #b48cff;
+  --gold: #ffc93c;
+  --fg: #f5f2ff;
+  --muted: #b9add9;
+  --link: #d9c6ff;
+  --surface: rgb(20 10 51 / 0.78);
+  --surface-alt: #36207a;
+  --border: #4a2f99;
+  --input-border: #6a4fc0;
+  --accent: #8f5bff;
+  color-scheme: dark;
+  color: var(--fg);
+  min-height: calc(100dvh - 4.5rem);
+  margin: -2rem calc(50% - 50vw) -3rem;
+  padding: 1.25rem max(1rem, calc(50vw - 560px)) 2rem;
+}

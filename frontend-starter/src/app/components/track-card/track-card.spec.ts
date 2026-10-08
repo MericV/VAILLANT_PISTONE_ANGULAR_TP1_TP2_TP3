@@ -41,26 +41,37 @@ describe('TrackCardComponent', () => {
     expect(link.getAttribute('aria-label')).toBe('Jouer à Blues en La');
   });
 
-  it('émet play et remove avec la piste', () => {
+  it('émet play avec la piste', () => {
     const play = vi.fn();
-    const remove = vi.fn();
     fixture.componentInstance.play.subscribe(play);
-    fixture.componentInstance.remove.subscribe(remove);
 
     button('Lire').click();
-    button('Supprimer').click();
 
     expect(play).toHaveBeenCalledWith(track);
+  });
+
+  it('range « Supprimer » dans le formulaire de modification', async () => {
+    const remove = vi.fn();
+    fixture.componentInstance.remove.subscribe(remove);
+    expect(button('Supprimer')).toBeNull(); // pas sur la carte
+
+    fixture.componentRef.setInput('editing', true);
+    await fixture.whenStable();
+    button('Supprimer').click();
+
     expect(remove).toHaveBeenCalledWith(track);
   });
 
   it('désactive les actions pendant la suppression', async () => {
     fixture.componentRef.setInput('deleting', true);
     await fixture.whenStable();
+    expect(button('Lire').disabled).toBe(true);
+    expect(button('Modifier').disabled).toBe(true);
 
+    fixture.componentRef.setInput('editing', true);
+    await fixture.whenStable();
     expect(button('Supprimer').disabled).toBe(true);
     expect(button('Supprimer').textContent).toContain('Suppression…');
-    expect(button('Lire').disabled).toBe(true);
   });
 
   describe('modification', () => {

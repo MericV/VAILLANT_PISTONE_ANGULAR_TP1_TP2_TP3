@@ -190,6 +190,7 @@ export class TracksPageComponent implements OnDestroy {
     this.service.remove(track.id).subscribe({
       next: () => {
         this.deletingId.set(null);
+        this.editingId.set(null); // la suppression se lance depuis le formulaire de modification
         if (this.currentTrack()?.id === track.id) this.stopPlayer();
         this.notify(`Piste « ${track.title} » supprimée.`);
         this.load();

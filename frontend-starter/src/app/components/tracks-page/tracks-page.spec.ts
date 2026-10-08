@@ -117,9 +117,11 @@ describe('TracksPageComponent', () => {
     it('appelle DELETE après confirmation, notifie et recharge la liste', () => {
       vi.spyOn(window, 'confirm').mockReturnValue(true);
       service.list.mockClear();
+      component.edit(makeTrack('a')); // « Supprimer » est dans le formulaire de modification
 
       component.remove(makeTrack('a'));
 
+      expect(component.editingId()).toBeNull(); // le formulaire se ferme avec la carte supprimée
       expect(service.remove).toHaveBeenCalledWith('a');
       expect(snackBar.open).toHaveBeenCalledWith('Piste « Piste a » supprimée.', 'Fermer', expect.anything());
       expect(service.list).toHaveBeenCalledTimes(1);

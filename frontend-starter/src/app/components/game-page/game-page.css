@@ -1,29 +1,10 @@
 :host { display: block; }
 
-/*
- * Scène de concert : le jeu sort du gabarit clair du site et occupe toute la largeur.
- * Les jetons de couleur sont redéfinis ici, donc la page reste sombre quel que soit le thème.
- */
+/* Jetons et mise en page de scène : classe globale .stage-page. Ici, les couleurs des paliers de combo. */
 .game {
-  --neon: #b48cff;
-  --gold: #ffc93c;
-  --fg: #f5f2ff;
-  --muted: #b9add9;
-  --link: #d9c6ff;
-  --surface: rgb(20 10 51 / 0.78);
-  --surface-alt: #36207a;
-  --border: #4a2f99;
-  --input-border: #6a4fc0;
-  --accent: #8f5bff;
   --tier-0: #3d8bff;
   --tier-1: #ff8a1f;
   --tier-2: #ff3b2f;
-  color-scheme: dark;
-  color: var(--fg);
-  min-height: calc(100dvh - 4.5rem);
-  margin: -2rem calc(50% - 50vw) -3rem;
-  padding: 1.25rem max(1rem, calc(50vw - 560px)) 2rem;
-  /* Le décor (dégradé + projecteurs) vient de la classe globale .stage-backdrop. */
 }
 
 .game-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 0.25rem 1rem; max-width: 760px; margin: 0 auto 1rem; }

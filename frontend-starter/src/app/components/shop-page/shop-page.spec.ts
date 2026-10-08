@@ -4,7 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { of, Subject, throwError } from 'rxjs';
-import { ShopPageComponent } from './shop-page';
+import { rarityOf, ShopPageComponent } from './shop-page';
 import { ShopService } from '../../shared/services/shop.service';
 import { AuthService } from '../../shared/services/auth.service';
 import { Avatar, Background, User } from '../../shared/models/user.model';
@@ -55,10 +55,14 @@ describe('ShopPageComponent', () => {
   });
 
   it('affiche le solde et l’état de chaque article des deux rayons', () => {
-    expect(host().querySelector('.balance')?.textContent).toContain('500');
+    expect(host().querySelector('.wallet')?.textContent).toContain('500');
     expect(statuses(0)).toEqual(['equipped', 'affordable', 'owned', 'locked']);
     expect(statuses(1)).toEqual(['equipped', 'affordable', 'locked']);
-    expect(host().textContent).toContain('Encore 1,000 points'); // Dragon : 1500 - 500
+    // Dragon verrouillé : barre de progression et points gagnés sur son prix.
+    const dragon = host().querySelectorAll('.item')[3];
+    expect(dragon.textContent).toContain('500 / 1,500 points');
+    expect(dragon.querySelector('[role="progressbar"]')?.getAttribute('aria-valuemax')).toBe('1500');
+    expect(host().querySelector('.item.equipped')?.textContent).toContain('Équipé');
   });
 
   /** Ouvre l'onglet « Fonds de scène » comme le ferait un clic. */
@@ -119,5 +123,12 @@ describe('ShopPageComponent', () => {
     expect(snackBar.open).toHaveBeenCalledWith('Points insuffisants', 'Fermer', { duration: 5000 });
     expect(auth.profile).toHaveBeenCalledTimes(2); // à l'ouverture, puis après le refus
     expect(component.busyId()).toBeNull();
+  });
+
+  it('classe les articles par rareté selon leur prix', () => {
+    expect([0, 299, 300, 799, 800, 1999, 2000].map((price) => rarityOf(price).key)).toEqual([
+      'common', 'common', 'rare', 'rare', 'epic', 'epic', 'legendary',
+    ]);
+    expect(host().querySelectorAll('.item')[3].getAttribute('data-rarity')).toBe('epic'); // Dragon, 1500
   });
 });
