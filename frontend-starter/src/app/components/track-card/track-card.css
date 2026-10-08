@@ -8,7 +8,6 @@ button.play:not([class*='mat-']) { display: grid; place-items: center; width: 2.
 h3 { overflow-wrap: anywhere; }
 /* Texte saisi par l'utilisateur : retours à la ligne conservés, longueur déjà bornée à 500. */
 .description { margin: 0.2rem 0 0; font-size: 0.9rem; white-space: pre-line; overflow-wrap: anywhere; }
-.filename { margin: 0.1rem 0 0; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
 .playing { margin: 0.25rem 0 0; color: var(--brass); font-size: 0.8rem; font-weight: 650; }
 
 .meta { display: flex; gap: 1.25rem; margin: 0; font-size: 0.85rem; }

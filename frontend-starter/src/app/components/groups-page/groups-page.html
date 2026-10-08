@@ -5,10 +5,10 @@
   </header>
 
   <div class="forms">
-    <form class="card" (ngSubmit)="create()">
+    <form class="card" [formGroup]="createForm" (ngSubmit)="create()">
       <h2>Créer un groupe</h2>
       <label>Nom du groupe
-        <input [formControl]="name" maxlength="40" autocomplete="off" />
+        <input formControlName="name" maxlength="40" autocomplete="off" />
         @if (name.touched && name.invalid) {
           <small class="error">Donnez un nom de 2 à 40 caractères.</small>
         }
@@ -16,10 +16,10 @@
       <button type="submit" [disabled]="busy() !== null">{{ busy() === 'create' ? 'Création…' : 'Créer' }}</button>
     </form>
 
-    <form class="card" (ngSubmit)="join()">
+    <form class="card" [formGroup]="joinForm" (ngSubmit)="join()">
       <h2>Rejoindre un groupe</h2>
       <label>Code d’invitation
-        <input [formControl]="code" maxlength="8" autocomplete="off" placeholder="Ex. K7QF2M" class="code-input" />
+        <input formControlName="code" maxlength="8" autocomplete="off" placeholder="Ex. K7QF2M" class="code-input" />
         @if (code.touched && code.invalid) {
           <small class="error">Le code fait 6 lettres ou chiffres.</small>
         }

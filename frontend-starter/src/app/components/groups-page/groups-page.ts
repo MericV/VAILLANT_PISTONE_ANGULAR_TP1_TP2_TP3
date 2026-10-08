@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Group } from '../../shared/models/group.model';
@@ -24,11 +24,21 @@ export class GroupsPageComponent {
   /** Action en cours : 'create', 'join' ou l'id du groupe quitté. Une seule à la fois. */
   readonly busy = signal<string | null>(null);
 
-  readonly name = new FormControl('', {
-    nonNullable: true,
-    validators: [Validators.required, Validators.pattern(/\S.*\S/), Validators.maxLength(40)],
+  /*
+   * Un FormGroup par formulaire : c'est la directive [formGroup] qui émet (ngSubmit).
+   * Sans elle, le navigateur ferait un envoi classique et rechargerait la page.
+   */
+  readonly createForm = new FormGroup({
+    name: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.pattern(/\S.*\S/), Validators.maxLength(40)],
+    }),
   });
-  readonly code = new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^\s*[A-Za-z0-9]{6}\s*$/)] });
+  readonly joinForm = new FormGroup({
+    code: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^\s*[A-Za-z0-9]{6}\s*$/)] }),
+  });
+  readonly name = this.createForm.controls.name;
+  readonly code = this.joinForm.controls.code;
 
   constructor() {
     this.load();

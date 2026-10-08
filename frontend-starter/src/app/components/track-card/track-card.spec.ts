@@ -26,10 +26,10 @@ describe('TrackCardComponent', () => {
     await fixture.whenStable();
   });
 
-  it('affiche les métadonnées lisibles de la piste', () => {
+  it('affiche les métadonnées lisibles de la piste, sans le nom du fichier', () => {
     const content = host().textContent ?? '';
     expect(content).toContain('Blues en La');
-    expect(content).toContain('blues.mp3');
+    expect(content).not.toContain('blues.mp3'); // le titre choisi suffit
     expect(content).toContain('MP3');
     expect(content).toContain('3.0 Mo');
   });

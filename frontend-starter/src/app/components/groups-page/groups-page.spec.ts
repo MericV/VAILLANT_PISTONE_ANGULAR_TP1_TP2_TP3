@@ -77,4 +77,39 @@ describe('GroupsPageComponent', () => {
     expect(service.leave).toHaveBeenCalledWith('g1');
     expect(component.groups()).toEqual([]);
   });
+
+  describe('formulaires (par le DOM, comme un utilisateur)', () => {
+    /** Tape une valeur dans un champ puis clique sur le bouton d'envoi de son formulaire. */
+    async function submit(field: string, value: string): Promise<void> {
+      const input = host().querySelector(`input[formControlName="${field}"]`) as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      (input.closest('form')!.querySelector('button[type="submit"]') as HTMLButtonElement).click();
+      await fixture.whenStable();
+    }
+
+    it('crée le groupe au clic sur « Créer », sans recharger la page', async () => {
+      service.create.mockReturnValue(of(group('g2', 'Les Accords')));
+
+      await submit('name', 'Les Accords');
+
+      expect(service.create).toHaveBeenCalledWith('Les Accords');
+      expect(host().textContent).toContain('Les Accords');
+    });
+
+    it('rejoint un groupe au clic sur « Rejoindre »', async () => {
+      service.join.mockReturnValue(of(group('g3', 'Les Basses')));
+
+      await submit('code', 'k7qf2m');
+
+      expect(service.join).toHaveBeenCalledWith('K7QF2M');
+    });
+
+    it('affiche l’erreur du nom au clic, sans appeler le serveur', async () => {
+      await submit('name', 'x');
+
+      expect(service.create).not.toHaveBeenCalled();
+      expect(host().textContent).toContain('Donnez un nom de 2 à 40 caractères.');
+    });
+  });
 });
