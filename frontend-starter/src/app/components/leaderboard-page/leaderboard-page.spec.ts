@@ -6,8 +6,8 @@ import { ScoreService } from '../../shared/services/score.service';
 import { LeaderboardEntry } from '../../shared/models/score.model';
 
 const entries: LeaderboardEntry[] = [
-  { rank: 1, name: 'Alice', total: 12000, stars: 14, played: 3, isMe: false },
-  { rank: 2, name: 'Bob', total: 8000, stars: 9, played: 2, isMe: true },
+  { rank: 1, name: 'Alice', avatar: { id: 'fox', name: 'Renard', emoji: '🦊', color: '#ff9a3d', price: 600 }, total: 12000, stars: 14, played: 3, isMe: false },
+  { rank: 2, name: 'Bob', avatar: { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 }, total: 8000, stars: 9, played: 2, isMe: true },
 ];
 
 describe('LeaderboardPageComponent', () => {

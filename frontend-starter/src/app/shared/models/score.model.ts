@@ -1,4 +1,5 @@
 import { Difficulty } from '../utils/beatmap';
+import { Avatar } from './user.model';
 
 /** Meilleur score d'un joueur sur un morceau, pour une difficulté (voir API_CONTRACT.md). */
 export interface ScoreRecord {
@@ -19,12 +20,16 @@ export type GameResult = Omit<ScoreRecord, 'id' | 'updatedAt'>;
 export interface ScoreSubmission {
   best: boolean;
   record: ScoreRecord;
+  /** Points gagnés par cette partie, et nouveau solde du joueur. */
+  coinsEarned: number;
+  coins: number;
 }
 
 /** Ligne du classement général : somme des records d'un joueur. */
 export interface LeaderboardEntry {
   rank: number;
   name: string;
+  avatar: Avatar;
   total: number;
   stars: number;
   played: number;

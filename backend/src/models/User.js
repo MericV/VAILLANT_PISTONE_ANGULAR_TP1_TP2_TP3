@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { avatarById, STARTER_AVATAR } from "../avatars.js";
 
 /*
  * Un schéma Mongoose décrit la forme des documents MongoDB et leurs règles de
@@ -17,6 +18,11 @@ const schema = new mongoose.Schema(
     },
     // select:false empêche de renvoyer le hash par défaut dans les requêtes.
     passwordHash: { type: String, required: true, select: false },
+    // Points gagnés en jouant, dépensés dans la boutique. min: 0 : jamais de solde négatif.
+    coins: { type: Number, default: 0, min: 0 },
+    // Avatars possédés (identifiants du catalogue) et avatar affiché.
+    avatars: { type: [String], default: () => [STARTER_AVATAR] },
+    avatar: { type: String, default: STARTER_AVATAR },
   },
   { timestamps: true },
 );
@@ -55,6 +61,10 @@ schema.methods.toPublic = function () {
     name: this.name,
     email: this.email,
     createdAt: this.createdAt,
+    coins: this.coins ?? 0,
+    avatar: avatarById(this.avatar),
+    // Les comptes créés avant la boutique n'ont pas encore de liste : ils ont l'avatar de départ.
+    avatars: this.avatars?.length ? this.avatars : [STARTER_AVATAR],
   };
 };
 

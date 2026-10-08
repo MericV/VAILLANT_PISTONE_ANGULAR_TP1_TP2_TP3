@@ -69,6 +69,7 @@
             <p class="hint">Enregistrement du score…</p>
           }
           @if (saved(); as result) {
+            <p class="coins">+{{ result.coinsEarned }} points pour la boutique</p>
             @if (result.best) {
               <p class="record">Nouveau record !</p>
             } @else {

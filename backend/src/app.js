@@ -10,6 +10,7 @@ import { User } from "./models/User.js";
 import { Track } from "./models/Track.js";
 import mongoose from "mongoose";
 import { DIFFICULTIES, Score } from "./models/Score.js";
+import { AVATARS, avatarById, coinsFor, STARTER_AVATAR } from "./avatars.js";
 
 // Les fichiers audio restent sur le disque du serveur dans ce TP.
 // MongoDB ne conserve que leurs métadonnées : titre, nom, taille, etc.
@@ -517,10 +518,15 @@ export function createApp() {
         return res.status(404).json({ message: "Piste inconnue" });
       }
 
+      // Chaque partie terminée rapporte des points, record battu ou non.
+      const coinsEarned = coinsFor(score, stars);
+      const player = await User.findByIdAndUpdate(req.auth.sub, { $inc: { coins: coinsEarned } }, { new: true });
+      const coins = player?.coins ?? 0;
+
       const key = { userId: req.auth.sub, trackId, difficulty };
       const previous = await Score.findOne(key);
       if (previous && previous.score >= score) {
-        return res.json({ best: false, record: previous.toPublic() });
+        return res.json({ best: false, record: previous.toPublic(), coinsEarned, coins });
       }
       const record = await Score.findOneAndUpdate(
         key,
@@ -528,7 +534,7 @@ export function createApp() {
         { new: true, upsert: true, runValidators: true },
       );
       console.log(`[scores] Nouveau record ${score} sur ${trackId} (${difficulty}) par ${req.auth.sub}`);
-      res.status(201).json({ best: true, record: record.toPublic() });
+      res.status(201).json({ best: true, record: record.toPublic(), coinsEarned, coins });
     } catch (error) {
       console.error("[scores] Erreur d'enregistrement", error);
       next(error);
@@ -580,6 +586,7 @@ export function createApp() {
         rows.map((row, index) => ({
           rank: index + 1,
           name: row.user.name,
+          avatar: avatarById(row.user.avatar),
           total: row.total,
           stars: row.stars,
           played: row.played,
@@ -588,6 +595,60 @@ export function createApp() {
       );
     } catch (error) {
       console.error("[scores] Erreur de calcul du classement", error);
+      next(error);
+    }
+  });
+
+  /** Catalogue de la boutique, du moins cher au plus cher. */
+  app.get("/api/shop/avatars", auth, (_req, res) => {
+    res.json(AVATARS);
+  });
+
+  /**
+   * Achat d'un avatar. La vérification du solde et le débit se font en UNE requête MongoDB
+   * (filtre coins >= prix et avatar pas encore possédé) : deux clics simultanés ne peuvent
+   * ni acheter deux fois ni rendre le solde négatif.
+   */
+  app.post("/api/shop/avatars/:id/buy", auth, async (req, res, next) => {
+    try {
+      const avatar = AVATARS.find((a) => a.id === req.params.id);
+      if (!avatar) return res.status(404).json({ message: "Avatar inconnu" });
+
+      const user = await User.findOneAndUpdate(
+        { _id: req.auth.sub, coins: { $gte: avatar.price }, avatars: { $ne: avatar.id } },
+        { $inc: { coins: -avatar.price }, $push: { avatars: avatar.id } },
+        { new: true },
+      );
+      if (!user) {
+        // L'achat a échoué : on relit le compte pour donner la vraie raison.
+        const current = await User.findById(req.auth.sub);
+        if (!current) return res.status(404).json({ message: "Utilisateur inconnu" });
+        const owned = current.avatars?.length ? current.avatars : [STARTER_AVATAR];
+        return owned.includes(avatar.id)
+          ? res.status(409).json({ message: "Avatar déjà possédé" })
+          : res.status(400).json({ message: "Points insuffisants" });
+      }
+      console.log(`[shop] ${req.auth.sub} achète ${avatar.id} (${avatar.price} points)`);
+      res.json(user.toPublic());
+    } catch (error) {
+      console.error("[shop] Erreur d'achat", error);
+      next(error);
+    }
+  });
+
+  /** Change l'avatar affiché : uniquement parmi les avatars possédés. */
+  app.put("/api/users/me/avatar", auth, async (req, res, next) => {
+    try {
+      const id = req.body?.avatar;
+      if (!AVATARS.some((a) => a.id === id)) {
+        return res.status(400).json({ message: "Avatar inconnu" });
+      }
+      const ownsIt = id === STARTER_AVATAR ? {} : { avatars: id };
+      const user = await User.findOneAndUpdate({ _id: req.auth.sub, ...ownsIt }, { $set: { avatar: id } }, { new: true });
+      if (!user) return res.status(403).json({ message: "Avatar non possédé" });
+      res.json(user.toPublic());
+    } catch (error) {
+      console.error("[shop] Erreur de changement d'avatar", error);
       next(error);
     }
   });

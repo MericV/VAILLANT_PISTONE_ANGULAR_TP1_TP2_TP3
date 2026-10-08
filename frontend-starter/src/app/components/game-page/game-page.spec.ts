@@ -5,6 +5,9 @@ import { of, throwError } from 'rxjs';
 import { GamePageComponent } from './game-page';
 import { TrackService } from '../../shared/services/track.service';
 import { ScoreService } from '../../shared/services/score.service';
+import { AuthService } from '../../shared/services/auth.service';
+import { signal } from '@angular/core';
+import { User } from '../../shared/models/user.model';
 import { GameNote } from '../../shared/utils/beatmap';
 
 const RATE = 44100;
@@ -37,6 +40,7 @@ describe('GamePageComponent', () => {
   let audio: FakeAudioContext;
   let service: { audio: ReturnType<typeof vi.fn> };
   let scores: { submit: ReturnType<typeof vi.fn> };
+  let auth: { currentUser: ReturnType<typeof signal<User | null>> };
 
   async function create(): Promise<void> {
     TestBed.configureTestingModule({
@@ -45,6 +49,7 @@ describe('GamePageComponent', () => {
         provideRouter([]),
         { provide: TrackService, useValue: service },
         { provide: ScoreService, useValue: scores },
+        { provide: AuthService, useValue: auth },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'track-1' }) } } },
       ],
     });
@@ -65,6 +70,7 @@ describe('GamePageComponent', () => {
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
     service = { audio: vi.fn(() => of(new Blob(['x'], { type: 'audio/mpeg' }))) };
     scores = { submit: vi.fn() };
+    auth = { currentUser: signal<User | null>(null) };
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -268,7 +274,7 @@ describe('GamePageComponent', () => {
     const endSong = () => audio.createBufferSource.mock.results.at(-1)!.value.onended();
 
     it('envoie un résultat entier à la fin du morceau et annonce un nouveau record', async () => {
-      scores.submit.mockReturnValue(of({ best: true, record }));
+      scores.submit.mockReturnValue(of({ best: true, record, coinsEarned: 32, coins: 532 }));
       await create();
       component.difficulty.set('hard');
       await component.start();
@@ -283,10 +289,23 @@ describe('GamePageComponent', () => {
       });
       expect(Number.isInteger(scores.submit.mock.calls[0][0].stars)).toBe(true);
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nouveau record !');
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('+32 points pour la boutique');
+    });
+
+    it('met à jour le solde de la barre du haut avec la réponse du serveur', async () => {
+      scores.submit.mockReturnValue(of({ best: true, record, coinsEarned: 32, coins: 532 }));
+      auth.currentUser.set({ id: 'u1', name: 'Léa', email: 'l@x.fr', createdAt: '', coins: 500, avatars: ['rocker'],
+        avatar: { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 } });
+      await create();
+      await component.start();
+
+      endSong();
+
+      expect(auth.currentUser()?.coins).toBe(532);
     });
 
     it('affiche le record à battre quand la partie ne le bat pas', async () => {
-      scores.submit.mockReturnValue(of({ best: false, record: { ...record, score: 9000 } }));
+      scores.submit.mockReturnValue(of({ best: false, record: { ...record, score: 9000 }, coinsEarned: 5, coins: 505 }));
       await create();
       await component.start();
 
@@ -298,7 +317,7 @@ describe('GamePageComponent', () => {
 
     it('propose de réessayer si l’enregistrement échoue', async () => {
       scores.submit.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })));
-      scores.submit.mockReturnValueOnce(of({ best: true, record }));
+      scores.submit.mockReturnValueOnce(of({ best: true, record, coinsEarned: 32, coins: 532 }));
       await create();
       await component.start();
 

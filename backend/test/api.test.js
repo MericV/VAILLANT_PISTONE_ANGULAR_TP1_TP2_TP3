@@ -6,6 +6,7 @@ import { createApp } from "../src/app.js";
 import { User } from "../src/models/User.js";
 import { Track } from "../src/models/Track.js";
 import { Score } from "../src/models/Score.js";
+import { AVATARS, avatarById, coinsFor, STARTER_AVATAR } from "../src/avatars.js";
 
 let server, base;
 
@@ -219,4 +220,49 @@ test("schéma Score : un seul record par joueur, morceau et difficulté", async 
   const { errors } = await new Score({ difficulty: "legendary", stars: 9 }).validate().catch((e) => e);
   assert.ok(errors.difficulty);
   assert.ok(errors.stars);
+});
+
+/*
+ * Boutique et points.
+ */
+test("points : 1 pour 100 de score, plus 10 par étoile", () => {
+  assert.equal(coinsFor(0, 0), 0);
+  assert.equal(coinsFor(19_999, 3), 199 + 30);
+});
+
+test("catalogue : un avatar de départ gratuit, identifiants uniques", () => {
+  assert.equal(avatarById(STARTER_AVATAR).price, 0);
+  assert.equal(new Set(AVATARS.map((a) => a.id)).size, AVATARS.length);
+  assert.equal(avatarById("n-existe-pas").id, STARTER_AVATAR);
+});
+
+test("utilisateur : solde à 0, avatar de départ possédé et affiché", () => {
+  const publicUser = new User({ name: "Test", email: "t@example.com" }).toPublic();
+  assert.equal(publicUser.coins, 0);
+  assert.equal(publicUser.avatar.id, STARTER_AVATAR);
+  assert.deepEqual(publicUser.avatars, [STARTER_AVATAR]);
+});
+
+test("boutique : 401 sans JWT, catalogue avec JWT", async () => {
+  assert.equal((await fetch(base + "/api/shop/avatars")).status, 401);
+  const r = await fetch(base + "/api/shop/avatars", { headers: { Authorization: `Bearer ${validToken()}` } });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).length, AVATARS.length);
+});
+
+test("boutique : 404 pour un avatar inconnu, avant toute requête MongoDB", async () => {
+  const r = await fetch(base + "/api/shop/avatars/licorne-doree/buy", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${validToken()}` },
+  });
+  assert.equal(r.status, 404);
+});
+
+test("avatar affiché : 400 pour un identifiant inconnu", async () => {
+  const r = await fetch(base + "/api/users/me/avatar", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${validToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ avatar: "licorne-doree" }),
+  });
+  assert.equal(r.status, 400);
 });

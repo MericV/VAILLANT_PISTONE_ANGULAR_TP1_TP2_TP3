@@ -1,0 +1,45 @@
+<section class="shop">
+  <header class="shop-head">
+    <div>
+      <h1>Boutique</h1>
+      <p>Chaque partie terminée rapporte des points : 1 pour 100 de score, plus 10 par étoile.</p>
+    </div>
+    <p class="balance"><b>{{ coins() | number }}</b> points</p>
+  </header>
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+    <button type="button" class="ghost" (click)="load()">Réessayer</button>
+  }
+  @if (loading()) {
+    <p class="status" role="status">Chargement de la boutique…</p>
+  }
+
+  <ul class="grid">
+    @for (item of items(); track item.avatar.id) {
+      <li class="item" [class.equipped]="item.status === 'equipped'" [style.--avatar]="item.avatar.color">
+        <app-avatar-badge [avatar]="item.avatar" [size]="72" />
+        <h2>{{ item.avatar.name }}</h2>
+        @switch (item.status) {
+          @case ('equipped') {
+            <p class="state">Avatar actuel</p>
+          }
+          @case ('owned') {
+            <button type="button" class="ghost" (click)="equip(item.avatar)" [disabled]="busyId() !== null" [attr.aria-label]="'Choisir ' + item.avatar.name">
+              {{ busyId() === item.avatar.id ? 'Changement…' : 'Choisir' }}
+            </button>
+          }
+          @case ('affordable') {
+            <button type="button" (click)="buy(item.avatar)" [disabled]="busyId() !== null" [attr.aria-label]="'Acheter ' + item.avatar.name + ' pour ' + item.avatar.price + ' points'">
+              {{ busyId() === item.avatar.id ? 'Achat…' : (item.avatar.price | number) + ' points' }}
+            </button>
+          }
+          @case ('locked') {
+            <p class="price">{{ item.avatar.price | number }} points</p>
+            <p class="state">Encore {{ item.missing | number }} points à gagner</p>
+          }
+        }
+      </li>
+    }
+  </ul>
+</section>

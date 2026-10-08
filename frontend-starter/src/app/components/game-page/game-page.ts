@@ -4,6 +4,7 @@ import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TrackService } from '../../shared/services/track.service';
 import { ScoreService } from '../../shared/services/score.service';
+import { AuthService } from '../../shared/services/auth.service';
 import { ScoreRecord } from '../../shared/models/score.model';
 import {
   Difficulty,
@@ -63,7 +64,7 @@ type Phase = 'loading' | 'ready' | 'playing' | 'finished' | 'error';
 export type SaveState =
   | { status: 'idle' }
   | { status: 'saving' }
-  | { status: 'saved'; best: boolean; record: ScoreRecord }
+  | { status: 'saved'; best: boolean; record: ScoreRecord; coinsEarned: number }
   | { status: 'error'; message: string };
 
 /**
@@ -80,6 +81,7 @@ export type SaveState =
 export class GamePageComponent implements OnDestroy {
   private readonly service = inject(TrackService);
   private readonly scores = inject(ScoreService);
+  private readonly auth = inject(AuthService);
   private readonly trackId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
   private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('stage');
 
@@ -510,7 +512,11 @@ export class GamePageComponent implements OnDestroy {
         maxCombo: this.maxCombo(),
       })
       .subscribe({
-        next: ({ best, record }) => this.save.set({ status: 'saved', best, record }),
+        next: ({ best, record, coinsEarned, coins }) => {
+          this.save.set({ status: 'saved', best, record, coinsEarned });
+          // Le solde de la barre du haut suit sans recharger le profil.
+          this.auth.currentUser.update((user) => user && { ...user, coins });
+        },
         error: (error: unknown) =>
           this.save.set({ status: 'error', message: httpErrorMessage(error, 'Score non enregistré.') }),
       });

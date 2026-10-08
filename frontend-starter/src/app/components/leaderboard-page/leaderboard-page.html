@@ -26,6 +26,7 @@
     @for (entry of entries(); track entry.rank) {
       <li [class.me]="entry.isMe" [class.podium]="entry.rank <= 3">
         <span class="rank">{{ entry.rank }}</span>
+        <app-avatar-badge [avatar]="entry.avatar" [size]="36" />
         <span class="name">{{ entry.name }}@if (entry.isMe) {<small> (vous)</small>}</span>
         <span class="stars">★ {{ entry.stars }}<span class="visually-hidden"> étoiles</span></span>
         <span class="played">{{ entry.played }} record(s)</span>

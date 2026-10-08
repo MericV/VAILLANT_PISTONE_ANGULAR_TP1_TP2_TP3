@@ -5,13 +5,14 @@ import { LeaderboardEntry } from '../../shared/models/score.model';
 import { ScoreService } from '../../shared/services/score.service';
 import { Difficulty, DIFFICULTIES } from '../../shared/utils/beatmap';
 import { httpErrorMessage } from '../../shared/utils/http-error';
+import { AvatarBadgeComponent } from '../avatar-badge/avatar-badge';
 
 /**
  * Classement général : chaque joueur cumule ses meilleurs scores (un par morceau et difficulté).
  * Le filtre recharge le classement côté serveur, qui fait le calcul (agrégation MongoDB).
  */
 @Component({
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, AvatarBadgeComponent],
   templateUrl: './leaderboard-page.html',
   styleUrl: './leaderboard-page.css',
 })

@@ -19,12 +19,19 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | POST | `/scores` | `{trackId, difficulty, score, stars, accuracy, maxCombo}` + JWT | `201 {best: true, record}` ou `200 {best: false, record}` |
 | GET | `/scores/me` | JWT | `200 ScoreRecord[]` |
 | GET | `/scores/leaderboard?difficulty=&limit=20` | JWT | `200 LeaderboardEntry[]` |
+| GET | `/shop/avatars` | JWT | `200 Avatar[]` |
+| POST | `/shop/avatars/:id/buy` | JWT | `200 User` ; `400` points insuffisants, `404` avatar inconnu, `409` déjà possédé |
+| PUT | `/users/me/avatar` | `{avatar}` + JWT | `200 User` ; `400` avatar inconnu, `403` non possédé |
 
 `Track` contient `id`, `ownerId`, `title`, `description` (chaîne vide par défaut), `originalName`, `mimeType`, `size` et `createdAt`. `PATCH` accepte un titre non vide (120 caractères max) et une description (500 max) ; au moins un des deux est requis.
 
+`User` contient `id`, `name`, `email`, `createdAt`, `coins` (points), `avatar` (objet `Avatar` affiché) et `avatars` (identifiants possédés). `Avatar` contient `id`, `name`, `emoji`, `color` et `price`.
+
+Chaque `POST /scores` crédite `floor(score / 100) + 10 × stars` points ; la réponse contient aussi `coinsEarned` et `coins` (nouveau solde).
+
 `ScoreRecord` contient `id`, `trackId`, `difficulty` (`easy`, `medium`, `hard`, `expert`), `score`, `stars` (0 à 5), `accuracy` (0 à 100), `maxCombo` et `updatedAt`. Seul le meilleur score par joueur, morceau et difficulté est conservé. `POST /scores` exige des entiers positifs (`400` sinon) et un morceau appartenant au joueur (`404` sinon).
 
-`LeaderboardEntry` contient `rank`, `name`, `total` (somme des records), `stars`, `played` et `isMe` (vrai pour le joueur connecté). `difficulty` est facultatif (toutes difficultés par défaut, `400` si inconnue) ; `limit` va de 1 à 50.
+`LeaderboardEntry` contient `rank`, `name`, `avatar`, `total` (somme des records), `stars`, `played` et `isMe` (vrai pour le joueur connecté). `difficulty` est facultatif (toutes difficultés par défaut, `400` si inconnue) ; `limit` va de 1 à 50.
 
 `Page<Track>` contient `items`, `page`, `limit`, `total` et `pages`. Formats acceptés : MP3, WAV, OGG et M4A, 25 Mo maximum.
 
