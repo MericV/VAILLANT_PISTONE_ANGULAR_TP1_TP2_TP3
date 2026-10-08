@@ -91,6 +91,8 @@ export class GamePageComponent implements OnDestroy {
   private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('stage');
 
   readonly title: string = history.state?.title ?? 'Morceau';
+  /** Fond de scène acheté et choisi dans la boutique, affiché derrière la piste. */
+  readonly backdrop = computed(() => this.auth.currentUser()?.background ?? null);
   /** Partie à plusieurs lancée depuis le salon d'un groupe, sinon `null` (partie solo). */
   readonly live: LiveLaunch | null = history.state?.live ?? null;
   /** État du groupe pendant la partie : scores des autres joueurs, en direct. */

@@ -14,6 +14,7 @@ import { User } from '../../shared/models/user.model';
 import { GameNote } from '../../shared/utils/beatmap';
 
 const RATE = 44100;
+const lava = { id: 'lava', name: 'Coulée de lave', stage: '#5c1408', deep: '#190402', spotA: '#ff3b2f', spotB: '#ff9a3d', price: 800 };
 
 /** Morceau synthétique de 3 s : un seul coup sec à 1 s, donc une seule note attendue. */
 function samplesWithClickAt1s(): Float32Array {
@@ -301,13 +302,24 @@ describe('GamePageComponent', () => {
     it('met à jour le solde de la barre du haut avec la réponse du serveur', async () => {
       scores.submit.mockReturnValue(of({ best: true, record, coinsEarned: 32, coins: 532 }));
       auth.currentUser.set({ id: 'u1', name: 'Léa', email: 'l@x.fr', createdAt: '', coins: 500, avatars: ['rocker'],
-        avatar: { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 } });
+        avatar: { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 }, backgrounds: ['stage'], background: lava });
       await create();
       await component.start();
 
       endSong();
 
       expect(auth.currentUser()?.coins).toBe(532);
+    });
+
+    it('affiche derrière la piste le fond de scène choisi dans la boutique', async () => {
+      auth.currentUser.set({ id: 'u1', name: 'Léa', email: '', createdAt: '', coins: 0, avatars: [], backgrounds: ['lava'],
+        avatar: { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 }, background: lava });
+      await create();
+
+      const scene = (fixture.nativeElement as HTMLElement).querySelector('.game') as HTMLElement;
+      expect(scene.classList).toContain('stage-backdrop');
+      expect(scene.style.getPropertyValue('--stage')).toBe('#5c1408');
+      expect(scene.style.getPropertyValue('--spot-a')).toBe('#ff3b2f');
     });
 
     it('affiche le record à battre quand la partie ne le bat pas', async () => {

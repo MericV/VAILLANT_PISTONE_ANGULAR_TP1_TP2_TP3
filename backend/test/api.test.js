@@ -6,7 +6,7 @@ import { createApp } from "../src/app.js";
 import { User } from "../src/models/User.js";
 import { Track } from "../src/models/Track.js";
 import { Score } from "../src/models/Score.js";
-import { AVATARS, avatarById, coinsFor, STARTER_AVATAR } from "../src/avatars.js";
+import { AVATARS, avatarById, BACKGROUNDS, coinsFor, STARTER_AVATAR, STARTER_BACKGROUND } from "../src/catalog.js";
 
 let server, base;
 
@@ -310,4 +310,35 @@ test("groupes : 400 pour un code d'invitation mal formé", async () => {
 test("direct : 404 pour un identifiant de groupe invalide", async () => {
   const r = await authed("/api/groups/pas-un-id/live");
   assert.equal(r.status, 404);
+});
+
+test("fonds de scène : un fond de départ gratuit, possédé et affiché par défaut", () => {
+  const free = BACKGROUNDS.find((b) => b.id === STARTER_BACKGROUND);
+  assert.equal(free.price, 0);
+  assert.equal(new Set(BACKGROUNDS.map((b) => b.id)).size, BACKGROUNDS.length);
+  const publicUser = new User({ name: "Test", email: "t@example.com" }).toPublic();
+  assert.equal(publicUser.background.id, STARTER_BACKGROUND);
+  assert.deepEqual(publicUser.backgrounds, [STARTER_BACKGROUND]);
+});
+
+test("boutique : catalogue des fonds, 404 pour un rayon ou un fond inconnu", async () => {
+  const headers = { Authorization: `Bearer ${validToken()}` };
+  const shelf = await fetch(base + "/api/shop/backgrounds", { headers });
+  assert.equal(shelf.status, 200);
+  assert.equal((await shelf.json()).length, BACKGROUNDS.length);
+  assert.equal((await fetch(base + "/api/shop/guitares", { headers })).status, 404);
+  const r = await fetch(base + "/api/shop/backgrounds/plage/buy", { method: "POST", headers });
+  assert.equal(r.status, 404);
+  assert.equal((await r.json()).message, "Fond inconnu");
+});
+
+test("fond affiché : 400 pour un fond inconnu, 404 pour un réglage inconnu", async () => {
+  const put = (slot, body) =>
+    fetch(base + "/api/users/me/" + slot, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${validToken()}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  assert.equal((await put("background", { background: "plage" })).status, 400);
+  assert.equal((await put("password", { password: "x" })).status, 404);
 });

@@ -15,31 +15,47 @@
     <p class="status" role="status">Chargement de la boutique…</p>
   }
 
-  <ul class="grid">
-    @for (item of items(); track item.avatar.id) {
-      <li class="item" [class.equipped]="item.status === 'equipped'" [style.--avatar]="item.avatar.color">
-        <app-avatar-badge [avatar]="item.avatar" [size]="72" />
-        <h2>{{ item.avatar.name }}</h2>
-        @switch (item.status) {
-          @case ('equipped') {
-            <p class="state">Avatar actuel</p>
-          }
-          @case ('owned') {
-            <button type="button" class="ghost" (click)="equip(item.avatar)" [disabled]="busyId() !== null" [attr.aria-label]="'Choisir ' + item.avatar.name">
-              {{ busyId() === item.avatar.id ? 'Changement…' : 'Choisir' }}
-            </button>
-          }
-          @case ('affordable') {
-            <button type="button" (click)="buy(item.avatar)" [disabled]="busyId() !== null" [attr.aria-label]="'Acheter ' + item.avatar.name + ' pour ' + item.avatar.price + ' points'">
-              {{ busyId() === item.avatar.id ? 'Achat…' : (item.avatar.price | number) + ' points' }}
-            </button>
-          }
-          @case ('locked') {
-            <p class="price">{{ item.avatar.price | number }} points</p>
-            <p class="state">Encore {{ item.missing | number }} points à gagner</p>
-          }
+  @for (shelf of shelves(); track shelf.key) {
+    <section class="shelf" [attr.aria-labelledby]="shelf.key + '-title'">
+      <h2 [id]="shelf.key + '-title'">{{ shelf.title }}</h2>
+      @if (shelf.key === 'backgrounds') {
+        <p class="hint">Le fond choisi s’affiche derrière la piste pendant vos parties.</p>
+      }
+      <ul class="grid" [class.wide]="shelf.key === 'backgrounds'">
+        @for (item of shelf.items; track item.id) {
+          <li class="item" [class.equipped]="item.status === 'equipped'">
+            @if (item.avatar; as avatar) {
+              <app-avatar-badge [avatar]="avatar" [size]="72" />
+            }
+            @if (item.background; as bg) {
+              <!-- Aperçu : le même dégradé que derrière la piste, avec une mini-piste pour juger le contraste. -->
+              <div class="preview stage-backdrop" [style.--stage]="bg.stage" [style.--stage-deep]="bg.deep" [style.--spot-a]="bg.spotA" [style.--spot-b]="bg.spotB" aria-hidden="true">
+                <span class="mini-road"></span>
+              </div>
+            }
+            <h3>{{ item.name }}</h3>
+            @switch (item.status) {
+              @case ('equipped') {
+                <p class="state">Utilisé</p>
+              }
+              @case ('owned') {
+                <button type="button" class="ghost" (click)="equip(item)" [disabled]="busyId() !== null" [attr.aria-label]="'Choisir ' + item.name">
+                  {{ busyId() === item.shelf + '/' + item.id ? 'Changement…' : 'Choisir' }}
+                </button>
+              }
+              @case ('affordable') {
+                <button type="button" (click)="buy(item)" [disabled]="busyId() !== null" [attr.aria-label]="'Acheter ' + item.name + ' pour ' + item.price + ' points'">
+                  {{ busyId() === item.shelf + '/' + item.id ? 'Achat…' : (item.price | number) + ' points' }}
+                </button>
+              }
+              @case ('locked') {
+                <p class="price">{{ item.price | number }} points</p>
+                <p class="state">Encore {{ item.missing | number }} points à gagner</p>
+              }
+            }
+          </li>
         }
-      </li>
-    }
-  </ul>
+      </ul>
+    </section>
+  }
 </section>

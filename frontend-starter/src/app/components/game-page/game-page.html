@@ -1,4 +1,11 @@
-<section class="game">
+<!-- Fond de scène choisi dans la boutique (couleurs du fond, sinon la scène néon par défaut). -->
+<section
+  class="game stage-backdrop"
+  [style.--stage]="backdrop()?.stage"
+  [style.--stage-deep]="backdrop()?.deep"
+  [style.--spot-a]="backdrop()?.spotA"
+  [style.--spot-b]="backdrop()?.spotB"
+>
   <header class="game-head">
     <a routerLink="/tracks">Retour à la bibliothèque</a>
     <h1>{{ title }}</h1>

@@ -19,9 +19,10 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | POST | `/scores` | `{trackId, difficulty, instrument?, score, stars, accuracy, maxCombo}` + JWT | `201 {best: true, record}` ou `200 {best: false, record}` |
 | GET | `/scores/me` | JWT | `200 ScoreRecord[]` |
 | GET | `/scores/leaderboard?difficulty=&limit=20` | JWT | `200 LeaderboardEntry[]` |
-| GET | `/shop/avatars` | JWT | `200 Avatar[]` |
-| POST | `/shop/avatars/:id/buy` | JWT | `200 User` ; `400` points insuffisants, `404` avatar inconnu, `409` déjà possédé |
+| GET | `/shop/:shelf` (`avatars`, `backgrounds`) | JWT | `200 Avatar[]` ou `200 Background[]` ; `404` rayon inconnu |
+| POST | `/shop/:shelf/:id/buy` | JWT | `200 User` ; `400` points insuffisants, `404` article inconnu, `409` déjà possédé |
 | PUT | `/users/me/avatar` | `{avatar}` + JWT | `200 User` ; `400` avatar inconnu, `403` non possédé |
+| PUT | `/users/me/background` | `{background}` + JWT | `200 User` ; `400` fond inconnu, `403` non possédé |
 | POST | `/groups` | `{name}` + JWT | `201 Group` ; `400` nom de 2 à 40 caractères |
 | GET | `/groups` | JWT | `200 Group[]` (groupes dont on est membre) |
 | POST | `/groups/join` | `{code}` + JWT | `200 Group` ; `400` code mal formé ou groupe complet, `404` code inconnu, `409` déjà membre |
@@ -36,7 +37,7 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 
 `Track` contient `id`, `ownerId`, `title`, `description` (chaîne vide par défaut), `originalName`, `mimeType`, `size` et `createdAt`. `PATCH` accepte un titre non vide (120 caractères max) et une description (500 max) ; au moins un des deux est requis.
 
-`User` contient `id`, `name`, `email`, `createdAt`, `coins` (points), `avatar` (objet `Avatar` affiché) et `avatars` (identifiants possédés). `Avatar` contient `id`, `name`, `emoji`, `color` et `price`.
+`User` contient `id`, `name`, `email`, `createdAt`, `coins` (points), `avatar` (objet `Avatar` affiché), `avatars` (identifiants possédés), `background` (objet `Background` affiché derrière la piste) et `backgrounds` (identifiants possédés). `Avatar` contient `id`, `name`, `emoji`, `color` et `price`. `Background` contient `id`, `name`, `stage`, `deep`, `spotA`, `spotB` (couleurs hexadécimales) et `price`.
 
 Chaque `POST /scores` crédite `floor(score / 100) + 10 × stars` points ; la réponse contient aussi `coinsEarned` et `coins` (nouveau solde).
 

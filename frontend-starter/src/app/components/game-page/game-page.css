@@ -5,8 +5,6 @@
  * Les jetons de couleur sont redéfinis ici, donc la page reste sombre quel que soit le thème.
  */
 .game {
-  --stage-deep: #140a33;
-  --stage: #2b1468;
   --neon: #b48cff;
   --gold: #ffc93c;
   --fg: #f5f2ff;
@@ -25,11 +23,7 @@
   min-height: calc(100dvh - 4.5rem);
   margin: -2rem calc(50% - 50vw) -3rem;
   padding: 1.25rem max(1rem, calc(50vw - 560px)) 2rem;
-  /* Projecteurs : deux halos colorés au-dessus de la scène, sans image ni script. */
-  background:
-    radial-gradient(60% 45% at 15% 0%, rgb(255 63 180 / 0.35), transparent 70%),
-    radial-gradient(55% 45% at 85% 5%, rgb(46 230 255 / 0.28), transparent 70%),
-    linear-gradient(180deg, var(--stage) 0%, var(--stage-deep) 75%);
+  /* Le décor (dégradé + projecteurs) vient de la classe globale .stage-backdrop. */
 }
 
 .game-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 0.25rem 1rem; max-width: 760px; margin: 0 auto 1rem; }

@@ -10,7 +10,7 @@ import { User } from "./models/User.js";
 import { Track } from "./models/Track.js";
 import mongoose from "mongoose";
 import { DIFFICULTIES, INSTRUMENTS, Score } from "./models/Score.js";
-import { AVATARS, avatarById, coinsFor, STARTER_AVATAR } from "./avatars.js";
+import { avatarById, coinsFor, SHOP } from "./catalog.js";
 import { Group, MAX_MEMBERS } from "./models/Group.js";
 import * as live from "./live.js";
 
@@ -611,36 +611,46 @@ export function createApp() {
     }
   });
 
-  /** Catalogue de la boutique, du moins cher au plus cher. */
-  app.get("/api/shop/avatars", auth, (_req, res) => {
-    res.json(AVATARS);
+  /** Rayon de la boutique demandé dans l'URL (`avatars` ou `backgrounds`), ou 404. */
+  const shelfOf = (req, res) => {
+    const shelf = Object.hasOwn(SHOP, req.params.shelf) ? SHOP[req.params.shelf] : null;
+    if (!shelf) res.status(404).json({ message: "Rayon inconnu" });
+    return shelf;
+  };
+
+  /** Catalogue d'un rayon, du moins cher au plus cher. */
+  app.get("/api/shop/:shelf", auth, (req, res) => {
+    const shelf = shelfOf(req, res);
+    if (shelf) res.json(shelf.catalog);
   });
 
   /**
-   * Achat d'un avatar. La vérification du solde et le débit se font en UNE requête MongoDB
-   * (filtre coins >= prix et avatar pas encore possédé) : deux clics simultanés ne peuvent
+   * Achat d'un article. La vérification du solde et le débit se font en UNE requête MongoDB
+   * (filtre coins >= prix et article pas encore possédé) : deux clics simultanés ne peuvent
    * ni acheter deux fois ni rendre le solde négatif.
    */
-  app.post("/api/shop/avatars/:id/buy", auth, async (req, res, next) => {
+  app.post("/api/shop/:shelf/:id/buy", auth, async (req, res, next) => {
     try {
-      const avatar = AVATARS.find((a) => a.id === req.params.id);
-      if (!avatar) return res.status(404).json({ message: "Avatar inconnu" });
+      const shelf = shelfOf(req, res);
+      if (!shelf) return;
+      const item = shelf.catalog.find((i) => i.id === req.params.id);
+      if (!item) return res.status(404).json({ message: `${shelf.label} inconnu` });
 
       const user = await User.findOneAndUpdate(
-        { _id: req.auth.sub, coins: { $gte: avatar.price }, avatars: { $ne: avatar.id } },
-        { $inc: { coins: -avatar.price }, $push: { avatars: avatar.id } },
+        { _id: req.auth.sub, coins: { $gte: item.price }, [shelf.owned]: { $ne: item.id } },
+        { $inc: { coins: -item.price }, $push: { [shelf.owned]: item.id } },
         { new: true },
       );
       if (!user) {
         // L'achat a échoué : on relit le compte pour donner la vraie raison.
         const current = await User.findById(req.auth.sub);
         if (!current) return res.status(404).json({ message: "Utilisateur inconnu" });
-        const owned = current.avatars?.length ? current.avatars : [STARTER_AVATAR];
-        return owned.includes(avatar.id)
-          ? res.status(409).json({ message: "Avatar déjà possédé" })
+        const owned = current[shelf.owned]?.length ? current[shelf.owned] : [shelf.starter];
+        return owned.includes(item.id)
+          ? res.status(409).json({ message: `${shelf.label} déjà possédé` })
           : res.status(400).json({ message: "Points insuffisants" });
       }
-      console.log(`[shop] ${req.auth.sub} achète ${avatar.id} (${avatar.price} points)`);
+      console.log(`[shop] ${req.auth.sub} achète ${req.params.shelf}/${item.id} (${item.price} points)`);
       res.json(user.toPublic());
     } catch (error) {
       console.error("[shop] Erreur d'achat", error);
@@ -648,19 +658,25 @@ export function createApp() {
     }
   });
 
-  /** Change l'avatar affiché : uniquement parmi les avatars possédés. */
-  app.put("/api/users/me/avatar", auth, async (req, res, next) => {
+  /** Change l'article utilisé (`avatar` ou `background`) : uniquement parmi ceux possédés. */
+  app.put("/api/users/me/:slot", auth, async (req, res, next) => {
     try {
-      const id = req.body?.avatar;
-      if (!AVATARS.some((a) => a.id === id)) {
-        return res.status(400).json({ message: "Avatar inconnu" });
+      const shelf = Object.values(SHOP).find((s) => s.equipped === req.params.slot);
+      if (!shelf) return res.status(404).json({ message: "Réglage inconnu" });
+      const id = req.body?.[shelf.equipped];
+      if (!shelf.catalog.some((i) => i.id === id)) {
+        return res.status(400).json({ message: `${shelf.label} inconnu` });
       }
-      const ownsIt = id === STARTER_AVATAR ? {} : { avatars: id };
-      const user = await User.findOneAndUpdate({ _id: req.auth.sub, ...ownsIt }, { $set: { avatar: id } }, { new: true });
-      if (!user) return res.status(403).json({ message: "Avatar non possédé" });
+      const ownsIt = id === shelf.starter ? {} : { [shelf.owned]: id };
+      const user = await User.findOneAndUpdate(
+        { _id: req.auth.sub, ...ownsIt },
+        { $set: { [shelf.equipped]: id } },
+        { new: true },
+      );
+      if (!user) return res.status(403).json({ message: `${shelf.label} non possédé` });
       res.json(user.toPublic());
     } catch (error) {
-      console.error("[shop] Erreur de changement d'avatar", error);
+      console.error("[shop] Erreur de changement d'article", error);
       next(error);
     }
   });

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import { avatarById, STARTER_AVATAR } from "../avatars.js";
+import { avatarById, backgroundById, STARTER_AVATAR, STARTER_BACKGROUND } from "../catalog.js";
 
 /*
  * Un schéma Mongoose décrit la forme des documents MongoDB et leurs règles de
@@ -23,6 +23,9 @@ const schema = new mongoose.Schema(
     // Avatars possédés (identifiants du catalogue) et avatar affiché.
     avatars: { type: [String], default: () => [STARTER_AVATAR] },
     avatar: { type: String, default: STARTER_AVATAR },
+    // Fonds de scène possédés et fond affiché derrière la piste pendant une partie.
+    backgrounds: { type: [String], default: () => [STARTER_BACKGROUND] },
+    background: { type: String, default: STARTER_BACKGROUND },
   },
   { timestamps: true },
 );
@@ -65,6 +68,8 @@ schema.methods.toPublic = function () {
     avatar: avatarById(this.avatar),
     // Les comptes créés avant la boutique n'ont pas encore de liste : ils ont l'avatar de départ.
     avatars: this.avatars?.length ? this.avatars : [STARTER_AVATAR],
+    background: backgroundById(this.background),
+    backgrounds: this.backgrounds?.length ? this.backgrounds : [STARTER_BACKGROUND],
   };
 };
 

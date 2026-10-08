@@ -2,18 +2,31 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Avatar } from '../../shared/models/user.model';
+import { forkJoin } from 'rxjs';
+import { Avatar, Background, Shelf } from '../../shared/models/user.model';
 import { AuthService } from '../../shared/services/auth.service';
 import { ShopService } from '../../shared/services/shop.service';
 import { httpErrorMessage } from '../../shared/utils/http-error';
 import { AvatarBadgeComponent } from '../avatar-badge/avatar-badge';
 
-/** État d'un avatar pour le joueur : il décide du bouton affiché sur sa carte. */
-export type AvatarStatus = 'equipped' | 'owned' | 'affordable' | 'locked';
+/** État d'un article pour le joueur : il décide du bouton affiché sur sa carte. */
+export type ItemStatus = 'equipped' | 'owned' | 'affordable' | 'locked';
+
+/** Article d'un rayon, prêt à afficher. `avatar` ou `background` selon le rayon. */
+interface ShopItem {
+  shelf: Shelf;
+  id: string;
+  name: string;
+  price: number;
+  status: ItemStatus;
+  missing: number;
+  avatar?: Avatar;
+  background?: Background;
+}
 
 /**
- * Boutique : les points gagnés en jouant achètent des avatars, puis on choisit celui affiché.
- * Le serveur reste seul juge du solde et de la possession ; la page ne fait qu'afficher son avis.
+ * Boutique : les points gagnés en jouant achètent des avatars et des fonds de scène,
+ * puis on choisit ceux utilisés. Le serveur reste seul juge du solde et de la possession.
  */
 @Component({
   imports: [DecimalPipe, AvatarBadgeComponent],
@@ -25,24 +38,39 @@ export class ShopPageComponent {
   private readonly snackBar = inject(MatSnackBar);
   readonly auth = inject(AuthService);
 
-  readonly avatars = signal<Avatar[]>([]);
+  private readonly avatars = signal<Avatar[]>([]);
+  private readonly backgrounds = signal<Background[]>([]);
   readonly loading = signal(true);
   readonly error = signal('');
-  /** Avatar en cours d'achat ou d'équipement : un seul à la fois. */
+  /** Article en cours d'achat ou d'équipement (`rayon/id`) : un seul à la fois. */
   readonly busyId = signal<string | null>(null);
 
   readonly coins = computed(() => this.auth.currentUser()?.coins ?? 0);
-  /** Chaque avatar avec son état pour le joueur connecté. */
-  readonly items = computed(() => {
+
+  /** Les deux rayons, chaque article avec son état pour le joueur connecté. */
+  readonly shelves = computed(() => {
     const user = this.auth.currentUser();
-    return this.avatars().map((avatar) => {
-      const status: AvatarStatus =
-        user?.avatar.id === avatar.id ? 'equipped'
-        : user?.avatars.includes(avatar.id) ? 'owned'
-        : this.coins() >= avatar.price ? 'affordable'
-        : 'locked';
-      return { avatar, status, missing: Math.max(0, avatar.price - this.coins()) };
+    const status = (shelf: Shelf, id: string, price: number): ItemStatus => {
+      const equipped = shelf === 'avatars' ? user?.avatar.id : user?.background.id;
+      const owned = shelf === 'avatars' ? user?.avatars : user?.backgrounds;
+      return equipped === id ? 'equipped' : owned?.includes(id) ? 'owned' : this.coins() >= price ? 'affordable' : 'locked';
+    };
+    const item = (shelf: Shelf, base: Avatar | Background) => ({
+      shelf,
+      id: base.id,
+      name: base.name,
+      price: base.price,
+      status: status(shelf, base.id, base.price),
+      missing: Math.max(0, base.price - this.coins()),
     });
+    return [
+      { key: 'avatars' as const, title: 'Avatars', items: this.avatars().map((a): ShopItem => ({ ...item('avatars', a), avatar: a })) },
+      {
+        key: 'backgrounds' as const,
+        title: 'Fonds de scène',
+        items: this.backgrounds().map((b): ShopItem => ({ ...item('backgrounds', b), background: b })),
+      },
+    ];
   });
 
   constructor() {
@@ -54,9 +82,10 @@ export class ShopPageComponent {
   load(): void {
     this.loading.set(true);
     this.error.set('');
-    this.shop.catalog().subscribe({
-      next: (avatars) => {
+    forkJoin([this.shop.avatars(), this.shop.backgrounds()]).subscribe({
+      next: ([avatars, backgrounds]) => {
         this.avatars.set(avatars);
+        this.backgrounds.set(backgrounds);
         this.loading.set(false);
       },
       error: (error: unknown) => {
@@ -66,18 +95,19 @@ export class ShopPageComponent {
     });
   }
 
-  buy(avatar: Avatar): void {
-    this.run(avatar, () => this.shop.buy(avatar.id), `${avatar.name} acheté. Il est dans votre collection.`);
+  buy(item: ShopItem): void {
+    this.run(item, () => this.shop.buy(item.shelf, item.id), `${item.name} : acheté. Il est dans votre collection.`);
   }
 
-  equip(avatar: Avatar): void {
-    this.run(avatar, () => this.shop.equip(avatar.id), `${avatar.name} est maintenant votre avatar.`);
+  equip(item: ShopItem): void {
+    const where = item.shelf === 'avatars' ? 'votre avatar' : 'votre fond de scène';
+    this.run(item, () => this.shop.equip(item.shelf, item.id), `${item.name} est maintenant ${where}.`);
   }
 
   /** La requête n'est créée qu'après la vérification « une action à la fois ». */
-  private run(avatar: Avatar, request: () => ReturnType<ShopService['buy']>, success: string): void {
+  private run(item: ShopItem, request: () => ReturnType<ShopService['buy']>, success: string): void {
     if (this.busyId()) return;
-    this.busyId.set(avatar.id);
+    this.busyId.set(`${item.shelf}/${item.id}`);
     request().subscribe({
       next: () => {
         this.busyId.set(null);
