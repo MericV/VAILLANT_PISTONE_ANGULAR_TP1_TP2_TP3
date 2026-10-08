@@ -273,3 +273,41 @@ test("avatar affiché : 400 pour un identifiant inconnu", async () => {
   });
   assert.equal(r.status, 400);
 });
+
+/*
+ * Groupes et parties en direct : sécurité et validations avant MongoDB.
+ */
+const authed = (url, init = {}) =>
+  fetch(base + url, {
+    ...init,
+    headers: { Authorization: `Bearer ${validToken()}`, "Content-Type": "application/json", ...init.headers },
+  });
+
+test("groupes : 401 sans JWT", async () => {
+  for (const [method, url] of [
+    ["GET", "/api/groups"],
+    ["POST", "/api/groups"],
+    ["POST", "/api/groups/join"],
+    ["GET", "/api/groups/123/live"],
+  ]) {
+    assert.equal((await fetch(base + url, { method })).status, 401, `${method} ${url}`);
+  }
+});
+
+test("groupes : 400 pour un nom trop court ou absent", async () => {
+  for (const name of [undefined, "x", "   ", 42]) {
+    const r = await authed("/api/groups", { method: "POST", body: JSON.stringify({ name }) });
+    assert.equal(r.status, 400, String(name));
+  }
+});
+
+test("groupes : 400 pour un code d'invitation mal formé", async () => {
+  const r = await authed("/api/groups/join", { method: "POST", body: JSON.stringify({ code: "abc" }) });
+  assert.equal(r.status, 400);
+  assert.equal((await r.json()).message, "Code d'invitation invalide");
+});
+
+test("direct : 404 pour un identifiant de groupe invalide", async () => {
+  const r = await authed("/api/groups/pas-un-id/live");
+  assert.equal(r.status, 404);
+});

@@ -11,6 +11,8 @@ import { Track } from "./models/Track.js";
 import mongoose from "mongoose";
 import { DIFFICULTIES, INSTRUMENTS, Score } from "./models/Score.js";
 import { AVATARS, avatarById, coinsFor, STARTER_AVATAR } from "./avatars.js";
+import { Group, MAX_MEMBERS } from "./models/Group.js";
+import * as live from "./live.js";
 
 // Les fichiers audio restent sur le disque du serveur dans ce TP.
 // MongoDB ne conserve que leurs métadonnées : titre, nom, taille, etc.
@@ -127,6 +129,15 @@ const upload = multer({
  * Cette séparation permet au serveur réel et aux tests de créer la même
  * application. Le port est ouvert uniquement dans server.js.
  */
+/**
+ * Un joueur peut jouer un morceau s'il en est le propriétaire, ou s'il partage un groupe
+ * avec lui : c'est ce qui permet de jouer ensemble sur le morceau d'un membre.
+ */
+async function canPlay(userId, ownerId) {
+  if (String(ownerId) === userId) return true;
+  return Boolean(await Group.exists({ members: { $all: [userId, ownerId] } }));
+}
+
 export function createApp() {
   const app = express();
 
@@ -378,15 +389,13 @@ export function createApp() {
     },
   );
 
-  /** Envoie le contenu binaire d'une piste après vérification de sa propriété. */
+  /** Envoie le contenu binaire d'une piste à son propriétaire ou à un membre d'un de ses groupes. */
   app.get("/api/tracks/:id/audio", auth, async (req, res, next) => {
     try {
-      const track = await Track.findOne({
-        _id: req.params.id,
-        ownerId: req.auth.sub,
-      }).select("+storedName");
+      const track = await Track.findById(req.params.id).select("+storedName");
 
-      if (!track) {
+      // Morceau inexistant ou non partagé : même réponse, pour ne pas révéler qu'il existe.
+      if (!track || !(await canPlay(req.auth.sub, track.ownerId))) {
         console.warn(`[tracks] Audio introuvable ou interdit : ${req.params.id}`);
         return res.status(404).json({ message: "Piste inconnue" });
       }
@@ -515,9 +524,9 @@ export function createApp() {
         return res.status(400).json({ message: "Résultat de partie invalide" });
       }
 
-      // On ne note que ses propres morceaux (ils sont privés).
-      const track = await Track.exists({ _id: trackId, ownerId: req.auth.sub });
-      if (!track) {
+      // On note ses propres morceaux, ou ceux d'un membre de ses groupes (parties à plusieurs).
+      const track = await Track.findById(trackId).select("ownerId");
+      if (!track || !(await canPlay(req.auth.sub, track.ownerId))) {
         return res.status(404).json({ message: "Piste inconnue" });
       }
 
@@ -655,6 +664,250 @@ export function createApp() {
       next(error);
     }
   });
+
+  /* ------------------------------------------------------------------ */
+  /* Groupes                                                            */
+  /* ------------------------------------------------------------------ */
+
+  const publicGroup = async (group, viewerId) => {
+    await group.populate("members", "name avatar");
+    return group.toPublic(avatarById, viewerId);
+  };
+  // Code d'invitation : 6 caractères sans 0/O ni 1/I, faciles à dicter.
+  const inviteCode = () =>
+    Array.from(crypto.randomBytes(6), (byte) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[byte % 32]).join("");
+
+  /** Crée un groupe dont le créateur est le premier membre. */
+  app.post("/api/groups", auth, async (req, res, next) => {
+    try {
+      const name = req.body?.name;
+      if (typeof name !== "string" || name.trim().length < 2 || name.trim().length > 40) {
+        return res.status(400).json({ message: "Nom de groupe de 2 à 40 caractères requis" });
+      }
+      const group = await Group.create({ name, ownerId: req.auth.sub, members: [req.auth.sub], code: inviteCode() });
+      console.log(`[groups] Groupe créé : ${group.id}`);
+      res.status(201).json(await publicGroup(group, req.auth.sub));
+    } catch (error) {
+      console.error("[groups] Erreur de création", error);
+      next(error);
+    }
+  });
+
+  /** Groupes dont l'utilisateur est membre. */
+  app.get("/api/groups", auth, async (req, res, next) => {
+    try {
+      const groups = await Group.find({ members: req.auth.sub }).sort({ createdAt: -1 }).populate("members", "name avatar");
+      res.json(groups.map((group) => group.toPublic(avatarById, req.auth.sub)));
+    } catch (error) {
+      console.error("[groups] Erreur de lecture", error);
+      next(error);
+    }
+  });
+
+  /**
+   * Rejoint un groupe par son code. Ajout atomique : pas de doublon et jamais plus de
+   * MAX_MEMBERS membres, même si plusieurs joueurs utilisent le code au même instant.
+   */
+  app.post("/api/groups/join", auth, async (req, res, next) => {
+    try {
+      const code = String(req.body?.code ?? "").trim().toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(code)) return res.status(400).json({ message: "Code d'invitation invalide" });
+
+      const group = await Group.findOneAndUpdate(
+        { code, members: { $ne: req.auth.sub }, [`members.${MAX_MEMBERS - 1}`]: { $exists: false } },
+        { $push: { members: req.auth.sub } },
+        { new: true },
+      );
+      if (!group) {
+        const existing = await Group.findOne({ code });
+        if (!existing) return res.status(404).json({ message: "Aucun groupe avec ce code" });
+        return existing.members.some((m) => String(m) === req.auth.sub)
+          ? res.status(409).json({ message: "Vous êtes déjà dans ce groupe" })
+          : res.status(400).json({ message: `Groupe complet (${MAX_MEMBERS} membres)` });
+      }
+      console.log(`[groups] ${req.auth.sub} rejoint ${group.id}`);
+      res.json(await publicGroup(group, req.auth.sub));
+    } catch (error) {
+      console.error("[groups] Erreur pour rejoindre", error);
+      next(error);
+    }
+  });
+
+  /** Quitte un groupe. Le dernier membre le supprime ; un propriétaire qui part transmet le groupe. */
+  app.post("/api/groups/:id/leave", auth, async (req, res, next) => {
+    try {
+      const group = await Group.findOneAndUpdate(
+        { _id: req.params.id, members: req.auth.sub },
+        { $pull: { members: req.auth.sub } },
+        { new: true },
+      );
+      if (!group) return res.status(404).json({ message: "Groupe inconnu" });
+      if (group.members.length === 0) {
+        await group.deleteOne();
+        sessions.delete(group.id);
+      } else if (String(group.ownerId) === req.auth.sub) {
+        group.ownerId = group.members[0];
+        await group.save();
+      }
+      res.status(204).end();
+    } catch (error) {
+      console.error("[groups] Erreur pour quitter", error);
+      next(error);
+    }
+  });
+
+  /** Morceaux de tous les membres : ce que le groupe peut jouer ensemble. */
+  app.get("/api/groups/:id/tracks", auth, async (req, res, next) => {
+    try {
+      const group = await Group.findOne({ _id: req.params.id, members: req.auth.sub }).populate("members", "name");
+      if (!group) return res.status(404).json({ message: "Groupe inconnu" });
+      const owners = new Map(group.members.map((m) => [String(m._id), m.name]));
+      const tracks = await Track.find({ ownerId: { $in: [...owners.keys()] } }).sort({ createdAt: -1 }).limit(100);
+      res.json(tracks.map((t) => ({ ...t.toPublic(), ownerName: owners.get(String(t.ownerId)) })));
+    } catch (error) {
+      console.error("[groups] Erreur de lecture des morceaux", error);
+      next(error);
+    }
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Parties en direct (Server-Sent Events + actions POST)              */
+  /* ------------------------------------------------------------------ */
+
+  const sessions = new Map(); // groupId -> salon (voir live.js)
+  const streams = new Map(); // groupId -> Set des réponses SSE ouvertes
+
+  /** Pousse l'état du salon à tous les navigateurs connectés au groupe. */
+  const broadcast = (groupId) => {
+    const session = sessions.get(groupId);
+    if (!session) return;
+    const message = `data: ${JSON.stringify(live.snapshot(session, Date.now()))}\n\n`;
+    for (const stream of streams.get(groupId) ?? []) stream.write(message);
+  };
+
+  /** Vérifie que l'utilisateur est membre ; renvoie le groupe ou envoie 404. */
+  const memberOf = async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(404).json({ message: "Groupe inconnu" });
+      return null;
+    }
+    const group = await Group.findOne({ _id: req.params.id, members: req.auth.sub });
+    if (!group) res.status(404).json({ message: "Groupe inconnu" });
+    return group;
+  };
+
+  /**
+   * Flux temps réel du salon. La réponse reste ouverte : chaque changement d'état est écrit
+   * sous la forme « data: {json} » suivie d'une ligne vide (format text/event-stream).
+   */
+  app.get("/api/groups/:id/live", auth, async (req, res, next) => {
+    try {
+      const group = await memberOf(req, res);
+      if (!group) return;
+      const user = await User.findById(req.auth.sub);
+      if (!user) return res.status(404).json({ message: "Utilisateur inconnu" });
+
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      const groupId = group.id;
+      if (!sessions.has(groupId)) sessions.set(groupId, live.createSession(groupId));
+      if (!streams.has(groupId)) streams.set(groupId, new Set());
+      streams.get(groupId).add(res);
+      live.join(sessions.get(groupId), { id: req.auth.sub, name: user.name, avatar: avatarById(user.avatar) });
+      broadcast(groupId);
+
+      // Un commentaire SSE toutes les 20 s empêche proxys et navigateurs de couper un flux silencieux.
+      const heartbeat = setInterval(() => res.write(": ping\n\n"), 20_000);
+      req.on("close", () => {
+        clearInterval(heartbeat);
+        streams.get(groupId)?.delete(res);
+        const session = sessions.get(groupId);
+        if (!session) return;
+        live.leave(session, req.auth.sub);
+        if (session.players.size === 0 || ![...session.players.values()].some((p) => p.connections > 0)) {
+          sessions.delete(groupId); // plus personne : le salon disparaît
+        } else {
+          broadcast(groupId);
+        }
+      });
+    } catch (error) {
+      console.error("[live] Erreur d'ouverture du flux", error);
+      next(error);
+    }
+  });
+
+  /** Actions du salon : chacune vérifie l'appartenance au groupe et l'existence du salon. */
+  const liveAction = (handler) => async (req, res, next) => {
+    try {
+      const group = await memberOf(req, res);
+      if (!group) return;
+      const session = sessions.get(group.id);
+      if (!session?.players.has(req.auth.sub)) {
+        return res.status(409).json({ message: "Ouvrez d'abord le salon du groupe" });
+      }
+      const error = await handler(session, req);
+      if (error) return res.status(error.status).json({ message: error.message });
+      broadcast(group.id);
+      res.status(204).end();
+    } catch (error) {
+      console.error("[live] Erreur d'action", error);
+      next(error);
+    }
+  };
+  const hostOnly = (session, req) =>
+    session.hostId === req.auth.sub ? null : { status: 403, message: "Seul l'hôte du salon peut faire cela" };
+
+  /** L'hôte choisit le morceau parmi ceux des membres. */
+  app.post("/api/groups/:id/live/track", auth, liveAction(async (session, req) => {
+    const denied = hostOnly(session, req);
+    if (denied) return denied;
+    if (session.state !== "lobby") return { status: 409, message: "Partie déjà lancée" };
+    if (!mongoose.isValidObjectId(req.body?.trackId)) return { status: 400, message: "Morceau invalide" };
+    const track = await Track.findById(req.body.trackId);
+    if (!track || !(await canPlay(req.auth.sub, track.ownerId))) return { status: 404, message: "Piste inconnue" };
+    session.track = { id: track.id, title: track.title };
+    return null;
+  }));
+
+  /** Chaque joueur règle son instrument, sa difficulté et se déclare prêt. */
+  app.post("/api/groups/:id/live/player", auth, liveAction((session, req) => {
+    const { instrument, difficulty, ready } = req.body ?? {};
+    if (!INSTRUMENTS.includes(instrument) || !DIFFICULTIES.includes(difficulty) || typeof ready !== "boolean") {
+      return { status: 400, message: "Réglages de joueur invalides" };
+    }
+    return live.setPlayer(session, req.auth.sub, { instrument, difficulty, ready })
+      ? null
+      : { status: 409, message: "Partie déjà lancée" };
+  }));
+
+  /** L'hôte lance la partie : départ commun dans START_DELAY_MS. */
+  app.post("/api/groups/:id/live/start", auth, liveAction((session, req) => {
+    const denied = hostOnly(session, req);
+    if (denied) return denied;
+    return live.start(session, Date.now())
+      ? null
+      : { status: 409, message: "Choisissez un morceau et attendez que tout le monde soit prêt" };
+  }));
+
+  /** Score en direct d'un joueur (environ une fois par seconde), puis `done` à la fin. */
+  app.post("/api/groups/:id/live/score", auth, liveAction((session, req) => {
+    const { score, combo, done } = req.body ?? {};
+    if (!Number.isInteger(score) || score < 0 || !Number.isInteger(combo) || combo < 0 || typeof done !== "boolean") {
+      return { status: 400, message: "Score invalide" };
+    }
+    return live.report(session, req.auth.sub, { score, combo, done }) ? null : { status: 409, message: "Aucune partie en cours" };
+  }));
+
+  /** L'hôte ramène tout le monde au salon pour une nouvelle partie. */
+  app.post("/api/groups/:id/live/reset", auth, liveAction((session, req) => {
+    const denied = hostOnly(session, req);
+    if (denied) return denied;
+    return live.reset(session) ? null : { status: 409, message: "Le salon est déjà ouvert" };
+  }));
 
   /** Gestionnaire central des erreurs connues de l'application. */
   app.use((error, _req, res, next) => {

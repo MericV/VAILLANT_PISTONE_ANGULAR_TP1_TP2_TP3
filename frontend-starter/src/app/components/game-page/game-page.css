@@ -136,3 +136,12 @@ button.pad:not([class*='mat-']):active { color: #140a33; background: var(--lane)
 @media (max-width: 640px) {
   .hud { flex-direction: column; align-items: stretch; }
 }
+
+/* ---- Partie à plusieurs ---- */
+.band-live { display: grid; gap: 0.15rem; margin: 0; padding: 0.5rem 0.75rem; list-style: none; font-size: 0.85rem; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.band-live li, .band-results li { display: flex; justify-content: space-between; gap: 1rem; }
+.band-live b, .band-results b { font-variant-numeric: tabular-nums; }
+.band-results { display: grid; gap: 0.35rem; max-width: 320px; margin: 1rem auto; padding: 0; list-style: none; text-align: left; }
+.band-results small { color: var(--muted); }
+.band-total b { font-size: 1.6rem; font-style: italic; font-weight: 900; font-variant-numeric: tabular-nums; }
+.go-link { padding: 0.85rem; color: #ffffff; font-style: italic; font-weight: 900; text-align: center; text-decoration: none; background: linear-gradient(180deg, #a77bff, #6a2fe0); border-radius: 999px; }

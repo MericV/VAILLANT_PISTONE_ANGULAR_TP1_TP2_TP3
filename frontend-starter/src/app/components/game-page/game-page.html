@@ -15,6 +15,9 @@
       <p class="panel error" role="alert">{{ error() }}</p>
     }
     @case ('ready') {
+      @if (live) {
+        <p class="panel status" role="status">Départ synchronisé avec le groupe…</p>
+      } @else {
       <div class="panel setup">
         <fieldset class="difficulty">
           <legend>Instrument</legend>
@@ -65,6 +68,7 @@
 
         <button type="button" class="go" (click)="start()">Jouer</button>
       </div>
+      }
     }
     @case ('finished') {
       <div class="panel result" role="status">
@@ -100,11 +104,24 @@
           <div><dt>Meilleur combo</dt><dd>{{ maxCombo() }}</dd></div>
           <div><dt>Précision</dt><dd>{{ accuracy() }} %</dd></div>
         </dl>
-        <div class="actions">
-          <button type="button" class="go" (click)="start()">Rejouer</button>
-          <button type="button" class="ghost" (click)="phase.set('ready')">Changer de difficulté</button>
-          <a class="ghost-link" routerLink="/leaderboard">Voir le classement</a>
-        </div>
+        @if (live) {
+          <!-- Résultats du groupe : se complètent en direct à mesure que les autres finissent. -->
+          <ol class="band-results" aria-label="Scores du groupe">
+            @for (player of bandPlayers(); track player.id) {
+              <li><span>{{ player.avatar.emoji }} {{ player.name }}</span><b>{{ player.score }}</b>@if (!player.done) {<small> en cours</small>}</li>
+            }
+          </ol>
+          <p class="band-total">Score du groupe : <b>{{ band()?.bandScore ?? displayScore() }}</b></p>
+          <div class="actions">
+            <a class="go-link" [routerLink]="['/groups', live.groupId, 'live']">Retour au salon</a>
+          </div>
+        } @else {
+          <div class="actions">
+            <button type="button" class="go" (click)="start()">Rejouer</button>
+            <button type="button" class="ghost" (click)="phase.set('ready')">Changer de difficulté</button>
+            <a class="ghost-link" routerLink="/leaderboard">Voir le classement</a>
+          </div>
+        }
       </div>
     }
   }
@@ -159,6 +176,13 @@
             {{ overdriveActive() ? 'Overdrive !' : 'Overdrive (Espace)' }}
           </button>
         </div>
+        @if (live) {
+          <ol class="band-live" aria-label="Scores du groupe en direct">
+            @for (player of bandPlayers(); track player.id) {
+              <li><span>{{ player.avatar.emoji }} {{ player.name }}</span><b>{{ player.score }}</b></li>
+            }
+          </ol>
+        }
         <dl class="hud-stats">
           <div><dt>Combo</dt><dd>{{ combo() }}</dd></div>
           <div><dt>Précision</dt><dd>{{ accuracy() }} %</dd></div>

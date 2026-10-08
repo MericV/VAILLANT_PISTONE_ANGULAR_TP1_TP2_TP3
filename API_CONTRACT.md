@@ -22,12 +22,27 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | GET | `/shop/avatars` | JWT | `200 Avatar[]` |
 | POST | `/shop/avatars/:id/buy` | JWT | `200 User` ; `400` points insuffisants, `404` avatar inconnu, `409` déjà possédé |
 | PUT | `/users/me/avatar` | `{avatar}` + JWT | `200 User` ; `400` avatar inconnu, `403` non possédé |
+| POST | `/groups` | `{name}` + JWT | `201 Group` ; `400` nom de 2 à 40 caractères |
+| GET | `/groups` | JWT | `200 Group[]` (groupes dont on est membre) |
+| POST | `/groups/join` | `{code}` + JWT | `200 Group` ; `400` code mal formé ou groupe complet, `404` code inconnu, `409` déjà membre |
+| POST | `/groups/:id/leave` | JWT | `204` ; `404` |
+| GET | `/groups/:id/tracks` | JWT (membre) | `200 (Track & {ownerName})[]` |
+| GET | `/groups/:id/live` | JWT (membre) | flux `text/event-stream` de `LiveState` |
+| POST | `/groups/:id/live/track` | `{trackId}` + JWT (hôte) | `204` ; `400`, `403`, `404`, `409` |
+| POST | `/groups/:id/live/player` | `{instrument, difficulty, ready}` + JWT | `204` ; `400`, `409` |
+| POST | `/groups/:id/live/start` | JWT (hôte) | `204` ; `403`, `409` si morceau absent ou joueurs pas prêts |
+| POST | `/groups/:id/live/score` | `{score, combo, done}` + JWT | `204` ; `400`, `409` hors partie |
+| POST | `/groups/:id/live/reset` | JWT (hôte) | `204` ; `403`, `409` |
 
 `Track` contient `id`, `ownerId`, `title`, `description` (chaîne vide par défaut), `originalName`, `mimeType`, `size` et `createdAt`. `PATCH` accepte un titre non vide (120 caractères max) et une description (500 max) ; au moins un des deux est requis.
 
 `User` contient `id`, `name`, `email`, `createdAt`, `coins` (points), `avatar` (objet `Avatar` affiché) et `avatars` (identifiants possédés). `Avatar` contient `id`, `name`, `emoji`, `color` et `price`.
 
 Chaque `POST /scores` crédite `floor(score / 100) + 10 × stars` points ; la réponse contient aussi `coinsEarned` et `coins` (nouveau solde).
+
+`Group` contient `id`, `name`, `code` (invitation, 6 caractères), `isOwner` et `members` (`id`, `name`, `avatar`, `isOwner`), 4 membres au plus. Un membre peut lire l'audio (`GET /tracks/:id/audio`) et enregistrer un score (`POST /scores`) sur les morceaux des autres membres.
+
+`LiveState` (une ligne `data: {json}` par changement) contient `state` (`lobby`, `playing`, `finished`), `hostId`, `track` (`{id, title}` ou `null`), `startAt` et `serverNow` (millisecondes, horloge du serveur), `canStart`, `bandScore` et `players` (`id`, `name`, `avatar`, `instrument`, `difficulty`, `ready`, `score`, `combo`, `done`, `connected`). Une action du salon exige d'avoir ouvert le flux (`409` sinon).
 
 `ScoreRecord` contient `id`, `trackId`, `difficulty` (`easy`, `medium`, `hard`, `expert`), `instrument` (`lead` par défaut, `bass`, `drums`, `vocals`), `score`, `stars` (0 à 5), `accuracy` (0 à 100), `maxCombo` et `updatedAt`. Seul le meilleur score par joueur, morceau, difficulté et instrument est conservé. `POST /scores` exige des entiers positifs (`400` sinon) et un morceau appartenant au joueur (`404` sinon).
 

@@ -5,6 +5,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TrackService } from '../../shared/services/track.service';
 import { ScoreService } from '../../shared/services/score.service';
 import { AuthService } from '../../shared/services/auth.service';
+import { GroupService } from '../../shared/services/group.service';
+import { LiveLaunch, LiveState } from '../../shared/models/group.model';
+import { Subscription } from 'rxjs';
 import { ScoreRecord } from '../../shared/models/score.model';
 import {
   Difficulty,
@@ -83,10 +86,18 @@ export class GamePageComponent implements OnDestroy {
   private readonly service = inject(TrackService);
   private readonly scores = inject(ScoreService);
   private readonly auth = inject(AuthService);
+  private readonly groups = inject(GroupService);
   private readonly trackId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
   private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('stage');
 
   readonly title: string = history.state?.title ?? 'Morceau';
+  /** Partie à plusieurs lancée depuis le salon d'un groupe, sinon `null` (partie solo). */
+  readonly live: LiveLaunch | null = history.state?.live ?? null;
+  /** État du groupe pendant la partie : scores des autres joueurs, en direct. */
+  readonly band = signal<LiveState | null>(null);
+  readonly bandPlayers = computed(() => [...(this.band()?.players ?? [])].sort((a, b) => b.score - a.score));
+  private bandStream?: Subscription;
+  private lastReport = 0;
   readonly difficulties = (Object.keys(DIFFICULTIES) as Difficulty[]).map((value) => ({ value, ...DIFFICULTIES[value] }));
 
   readonly phase = signal<Phase>('loading');
@@ -180,6 +191,15 @@ export class GamePageComponent implements OnDestroy {
   private readonly brokenPhrases = new Set<number>();
 
   constructor() {
+    if (this.live) {
+      // Réglages choisis dans le salon ; le flux du groupe donne les scores des autres en direct.
+      this.difficulty.set(this.live.difficulty);
+      this.instrument.set(this.live.instrument);
+      this.bandStream = this.groups.live(this.live.groupId).subscribe({
+        next: (state) => this.band.set(state),
+        error: () => undefined, // la partie continue en solo si le flux tombe
+      });
+    }
     this.service.audio(this.trackId).subscribe({
       next: (blob) => void this.decode(blob),
       error: (error: unknown) => {
@@ -199,13 +219,16 @@ export class GamePageComponent implements OnDestroy {
       this.buffer = await this.audio.decodeAudioData(await blob.arrayBuffer());
       this.samples = toMono(this.buffer);
       this.phase.set('ready');
+      // À plusieurs : départ automatique à l'heure commune (au moins 1 s pour se placer).
+      if (this.live) void this.start(Math.max(1, (this.live.startAt - Date.now()) / 1000));
     } catch {
       this.phase.set('error');
       this.error.set('Le navigateur ne sait pas décoder ce fichier audio.');
     }
   }
 
-  async start(): Promise<void> {
+  /** `leadInS` : secondes avant la première note (décompte affiché sur la piste). */
+  async start(leadInS = LEAD_IN_S): Promise<void> {
     const audio = this.audio;
     if (!audio || !this.buffer || !this.samples) return;
     this.stopMusic();
@@ -236,7 +259,7 @@ export class GamePageComponent implements OnDestroy {
     this.source = audio.createBufferSource();
     this.source.buffer = this.buffer;
     this.source.connect(audio.destination);
-    this.startAt = audio.currentTime + LEAD_IN_S;
+    this.startAt = audio.currentTime + leadInS;
     this.source.start(this.startAt);
     this.source.onended = () => this.finish();
 
@@ -246,6 +269,12 @@ export class GamePageComponent implements OnDestroy {
   }
 
   stop(): void {
+    // À plusieurs, arrêter = abandonner : on termine pour que le groupe ne nous attende pas.
+    if (this.live) {
+      this.stopMusic();
+      this.finish();
+      return;
+    }
     this.stopMusic();
     this.phase.set('ready');
   }
@@ -348,6 +377,7 @@ export class GamePageComponent implements OnDestroy {
       if (left <= 0) this.overdriveActive.set(false);
     }
 
+    this.reportLive(false);
     this.draw(now);
     this.frame = requestAnimationFrame(() => this.loop());
   }
@@ -505,7 +535,17 @@ export class GamePageComponent implements OnDestroy {
     if (this.phase() !== 'playing') return;
     cancelAnimationFrame(this.frame);
     this.phase.set('finished');
+    this.reportLive(true);
     this.saveScore();
+  }
+
+  /** Envoie son score au groupe environ une fois par seconde, et toujours à la fin. */
+  private reportLive(done: boolean): void {
+    if (!this.live || (!done && performance.now() - this.lastReport < 1000)) return;
+    this.lastReport = performance.now();
+    this.groups
+      .reportScore(this.live.groupId, { score: this.displayScore(), combo: this.combo(), done })
+      .subscribe({ error: () => undefined }); // un envoi perdu sera remplacé par le suivant
   }
 
   /**
@@ -546,6 +586,7 @@ export class GamePageComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.bandStream?.unsubscribe();
     this.stopMusic();
     void this.audio?.close();
   }

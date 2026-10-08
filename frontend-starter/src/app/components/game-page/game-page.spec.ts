@@ -6,6 +6,9 @@ import { GamePageComponent } from './game-page';
 import { TrackService } from '../../shared/services/track.service';
 import { ScoreService } from '../../shared/services/score.service';
 import { AuthService } from '../../shared/services/auth.service';
+import { GroupService } from '../../shared/services/group.service';
+import { Subject } from 'rxjs';
+import { LiveState } from '../../shared/models/group.model';
 import { signal } from '@angular/core';
 import { User } from '../../shared/models/user.model';
 import { GameNote } from '../../shared/utils/beatmap';
@@ -41,6 +44,7 @@ describe('GamePageComponent', () => {
   let service: { audio: ReturnType<typeof vi.fn> };
   let scores: { submit: ReturnType<typeof vi.fn> };
   let auth: { currentUser: ReturnType<typeof signal<User | null>> };
+  let groups: { live: ReturnType<typeof vi.fn>; reportScore: ReturnType<typeof vi.fn> };
 
   async function create(): Promise<void> {
     TestBed.configureTestingModule({
@@ -50,6 +54,7 @@ describe('GamePageComponent', () => {
         { provide: TrackService, useValue: service },
         { provide: ScoreService, useValue: scores },
         { provide: AuthService, useValue: auth },
+        { provide: GroupService, useValue: groups },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'track-1' }) } } },
       ],
     });
@@ -71,6 +76,7 @@ describe('GamePageComponent', () => {
     service = { audio: vi.fn(() => of(new Blob(['x'], { type: 'audio/mpeg' }))) };
     scores = { submit: vi.fn() };
     auth = { currentUser: signal<User | null>(null) };
+    groups = { live: vi.fn(() => new Subject()), reportScore: vi.fn(() => of(undefined)) };
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -360,6 +366,55 @@ describe('GamePageComponent', () => {
       audio.createBufferSource.mock.results.at(-1)!.value.onended();
 
       expect(scores.submit.mock.calls[0][0].instrument).toBe('drums');
+    });
+  });
+
+  describe('partie à plusieurs', () => {
+    const launch = { groupId: 'g1', instrument: 'bass' as const, difficulty: 'hard' as const };
+    afterEach(() => history.replaceState(null, ''));
+
+    it('reprend les réglages du salon et démarre seul à l’heure commune', async () => {
+      history.replaceState({ title: 'Blues', live: { ...launch, startAt: Date.now() + 5000 } }, '');
+      await create();
+
+      expect(component.instrument()).toBe('bass');
+      expect(component.difficulty()).toBe('hard');
+      expect(component.phase()).toBe('playing'); // aucun clic sur « Jouer »
+      const [when] = audio.createBufferSource.mock.results[0].value.start.mock.calls[0];
+      expect(when).toBeGreaterThan(4); // ≈ 5 s de décompte jusqu'au départ commun
+      expect(when).toBeLessThanOrEqual(5);
+    });
+
+    it('affiche les scores du groupe en direct et prévient le groupe à la fin', async () => {
+      const stream = new Subject<LiveState>();
+      groups.live.mockReturnValue(stream);
+      scores.submit.mockReturnValue(of({ best: false, record: {}, coinsEarned: 0, coins: 0 }));
+      history.replaceState({ title: 'Blues', live: { ...launch, startAt: Date.now() + 1000 } }, '');
+      await create();
+
+      stream.next({
+        state: 'playing', hostId: 'u1', track: null, startAt: 0, serverNow: 0, canStart: false, bandScore: 3000,
+        players: [
+          { id: 'u2', name: 'Bob', avatar: { id: 'fox', name: 'Renard', emoji: '🦊', color: '#f90', price: 0 }, instrument: 'lead',
+            difficulty: 'easy', ready: true, score: 3000, combo: 4, done: false, connected: true },
+        ],
+      });
+      await fixture.whenStable();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.band-live')?.textContent).toContain('Bob');
+
+      audio.createBufferSource.mock.results.at(-1)!.value.onended();
+      expect(groups.reportScore).toHaveBeenLastCalledWith('g1', expect.objectContaining({ done: true }));
+    });
+
+    it('Arrêter abandonne la partie au lieu de revenir aux réglages', async () => {
+      scores.submit.mockReturnValue(of({ best: false, record: {}, coinsEarned: 0, coins: 0 }));
+      history.replaceState({ title: 'Blues', live: { ...launch, startAt: Date.now() + 1000 } }, '');
+      await create();
+
+      component.stop();
+
+      expect(component.phase()).toBe('finished');
+      expect(groups.reportScore).toHaveBeenLastCalledWith('g1', expect.objectContaining({ done: true }));
     });
   });
 });
