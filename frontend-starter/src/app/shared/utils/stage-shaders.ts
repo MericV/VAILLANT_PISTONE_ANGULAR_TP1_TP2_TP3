@@ -8,7 +8,7 @@
  * - `miss` (0 à 1) : vaut 1 juste après un raté puis retombe, pour ternir brièvement la scène.
  * Ils restent sombres au centre : la piste et ses notes doivent rester lisibles par-dessus.
  */
-export type StageShader = 'caustics' | 'aurora' | 'lasers' | 'sparks';
+export type StageShader = 'caustics' | 'aurora' | 'lasers' | 'sparks' | 'flux' | 'dots' | 'ascii';
 
 /** Partie commune : uniformes, bruit pseudo-aléatoire et fin de rendu (effet du raté). */
 const HEADER = `
@@ -167,6 +167,124 @@ void main() {
     vec3 tint = mix(vec3(1.0, 0.45, 0.1), vec3(1.0, 0.85, 0.4), combo * seed * 2.0);
     col += tint * spark * (0.8 + bass * 0.8);
   }
+  gl_FragColor = vec4(finish(col), 1.0);
+}`,
+
+  /*
+   * Flux néon : des faisceaux de lumière courbes filent vers la droite, sur une grille de
+   * repères de visée (« + » et coins de cadre). Les couleurs sont légèrement décalées
+   * (rouge et bleu à côté du vert), comme une image d'écran qui tremble.
+   * Le combo ajoute des faisceaux, les basses les épaississent.
+   */
+  flux: `
+float strand(vec2 p, float fi) {
+  float y = 0.5 + 0.22 * sin(p.x * (1.1 + fi * 0.13) + fi * 1.9 + time * 0.35)
+          + 0.08 * sin(p.x * 3.1 - time * 0.9 + fi * 4.0) + (fi - 4.0) * 0.025;
+  float d = abs(p.y - y);
+  float width = 0.0025 + bass * 0.003;
+  return width / (d + width * 0.6) * 0.25 + exp(-d * d / (width * width)) * 0.9;
+}
+float beams(vec2 p) {
+  float total = 0.0;
+  float count = 3.0 + combo * 6.0;
+  for (int i = 0; i < 9; i++) {
+    float fi = float(i);
+    float pulse = 0.6 + 0.4 * sin(p.x * 2.0 - time * 3.0 + fi * 2.3); // la lumière court le long du faisceau
+    total += strand(p, fi) * pulse * clamp(count - fi, 0.0, 1.0);
+  }
+  return total;
+}
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  float aspect = resolution.x / resolution.y;
+  vec2 p = vec2(uv.x * aspect, uv.y);
+  float shift = 0.004 + bass * 0.004;
+  vec3 col = vec3(beams(p + vec2(shift, 0.0)), beams(p), beams(p - vec2(shift, 0.0)));
+  col *= vec3(0.25, 0.75, 1.0) * (0.45 + bass * 0.5);
+  // Repères de visée : un « + » au centre de chaque case, et des coins de cadre en « L »
+  // autour de quelques cases tirées au hasard.
+  vec2 cell = p * 8.0;
+  vec2 f = abs(fract(cell) - 0.5);
+  float line = 0.018;
+  float plus = max(step(f.x, line) * step(f.y, 0.12), step(f.y, line) * step(f.x, 0.12));
+  float inCorner = step(0.36, f.x) * step(0.36, f.y);
+  float bracket = inCorner * max(step(0.5 - line * 1.5, f.x), step(0.5 - line * 1.5, f.y));
+  float framed = step(0.8, hash(floor(cell)));
+  float near = smoothstep(0.35, 0.0, abs(p.y - 0.5 - 0.15 * sin(p.x + time * 0.35)));
+  col += vec3(0.6, 0.85, 1.0) * (plus * 0.5 + bracket * framed * 0.7) * (0.12 + near * 0.9);
+  col += vec3(0.0, 0.02, 0.06);
+  gl_FragColor = vec4(finish(col), 1.0);
+}`,
+
+  /*
+   * Vagues de points : un relief vu en perspective, dessiné en lignes de points (magenta en
+   * haut des crêtes, cyan dans les creux). On parcourt 40 rangées de la plus lointaine à la
+   * plus proche ; chaque rangée est une courbe de hauteur, pointillée. Les basses font gonfler le relief.
+   */
+  dots: `
+float height(float x, float z) {
+  return 0.55 * sin(x * 1.3 + z * 0.8 + time * 0.5) * sin(z * 0.9 - time * 0.3)
+       + 0.35 * sin(x * 2.7 - z * 1.7 + time * 0.8) + 0.25 * noise(vec2(x * 1.5, z * 1.5 - time * 0.4));
+}
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  float aspect = resolution.x / resolution.y;
+  vec3 col = vec3(0.01, 0.0, 0.025);
+  float amp = 0.16 + bass * 0.12 + combo * 0.05;
+  float scroll = fract(time * 0.5) * 0.1; // les rangées avancent vers le joueur
+  for (int i = 0; i < 48; i++) {
+    float z = 1.0 + float(i) * 0.1 - scroll;   // profondeur de la rangée
+    float s = 1.0 / z;                          // perspective : plus loin = plus petit
+    float x = (uv.x - 0.5) * aspect / s;        // abscisse dans le relief
+    float h = height(x, z + floor(time * 5.0) * 0.1);
+    // Rangée la plus proche en bas de l'écran, horizon aux deux tiers de la hauteur.
+    float y = 0.66 * (1.0 - s) + h * amp * s;
+    float dyPx = (uv.y - y) * resolution.y;
+    // Points espacés régulièrement dans le relief, donc plus serrés au loin.
+    float spacing = 0.045;
+    float dxPx = (fract(x / spacing) - 0.5) * spacing * s * resolution.y;
+    float radius = 0.7 + 1.8 * s;
+    float spot = smoothstep(radius + 0.8, radius - 0.4, length(vec2(dxPx, dyPx)));
+    vec3 tint = mix(vec3(0.1, 0.85, 1.0), vec3(1.0, 0.2, 0.85), smoothstep(-0.5, 0.5, h));
+    col += tint * spot * (0.35 + 0.65 * s) * (0.6 + bass * 0.5);
+  }
+  gl_FragColor = vec4(finish(col), 1.0);
+}`,
+
+  /*
+   * Tunnel ASCII : un tunnel qui fonce vers le joueur, affiché avec des caractères de texte.
+   * L'écran est découpé en cases de la taille d'un caractère ; la luminosité du tunnel au
+   * centre de la case choisit le caractère (de « . » à « # »), dessiné à partir d'une petite
+   * police de 4 × 5 pixels codée en nombres (un bit par pixel).
+   */
+  ascii: `
+float glyph(float level, vec2 p) {
+  // Caractères du plus clair au plus dense : espace . : - = + * #. Chaque nombre code un dessin
+  // de 4 × 5 pixels (bit x + 4y, y = 0 en bas). highp : ces nombres dépassent la précision mediump.
+  highp float bits = level < 0.5 ? 0.0 : level < 1.5 ? 2.0 : level < 2.5 ? 8224.0 : level < 3.5 ? 3840.0
+                   : level < 4.5 ? 61680.0 : level < 5.5 ? 10016.0 : level < 6.5 ? 337701.0 : 390645.0;
+  vec2 px = floor(p * vec2(4.0, 5.0));
+  if (px.x < 0.0 || px.x > 3.0 || px.y < 0.0 || px.y > 4.0) return 0.0;
+  highp float bit = exp2(px.x + px.y * 4.0);
+  return mod(floor(bits / bit), 2.0);
+}
+void main() {
+  vec2 cellSize = vec2(8.0, 13.0) * max(1.0, resolution.y / 700.0);
+  vec2 cell = floor(gl_FragCoord.xy / cellSize);
+  vec2 inCell = fract(gl_FragCoord.xy / cellSize) * vec2(1.25, 1.2) - vec2(0.1, 0.1);
+  vec2 c = (cell * cellSize + cellSize * 0.5 - resolution * 0.5) / resolution.y;
+  float r = length(c);
+  float a = atan(c.y, c.x) / 6.28318 + 0.5;
+  // Coordonnées du tunnel : l'angle autour du centre et la profondeur (1 / distance), qui
+  // défile avec le temps. Un bruit étiré le long de la profondeur trace de longues traînées.
+  float depth = 0.3 / max(r, 0.02) + time * (1.0 + combo * 1.5);
+  float streak = smoothstep(0.42, 0.78, noise(vec2(a * 22.0, depth * 0.45)));
+  float light = streak * smoothstep(0.03, 0.4, r) * (0.65 + bass * 0.6);
+  float level = floor(clamp(light, 0.0, 0.999) * 8.0);
+  float ink = glyph(level, inCell);
+  vec3 tint = mix(vec3(0.15, 0.35, 1.0), vec3(0.2, 1.0, 0.85), smoothstep(0.1, 0.6, r));
+  // × 0,75 : les caractères restent en retrait derrière le texte de la page et les notes.
+  vec3 col = tint * ink * (0.35 + light) * 0.75 + vec3(0.0, 0.01, 0.03);
   gl_FragColor = vec4(finish(col), 1.0);
 }`,
 };

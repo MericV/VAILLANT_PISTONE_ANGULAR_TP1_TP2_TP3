@@ -37,7 +37,7 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 
 `Track` contient `id`, `ownerId`, `title`, `description` (chaîne vide par défaut), `originalName`, `mimeType`, `size` et `createdAt`. `PATCH` accepte un titre non vide (120 caractères max) et une description (500 max) ; au moins un des deux est requis.
 
-`User` contient `id`, `name`, `email`, `createdAt`, `coins` (points), `avatar` (objet `Avatar` affiché), `avatars` (identifiants possédés), `background` (objet `Background` affiché derrière la piste) et `backgrounds` (identifiants possédés). `Avatar` contient `id`, `name`, `emoji`, `color` et `price`. `Background` contient `id`, `name`, `shader` (`null` pour le dégradé de départ, sinon `caustics`, `aurora`, `lasers` ou `sparks` : fond animé WebGL), `stage`, `deep`, `spotA`, `spotB` (couleurs hexadécimales, décor de secours sans WebGL) et `price`.
+`User` contient `id`, `name`, `email`, `createdAt`, `coins` (points), `avatar` (objet `Avatar` affiché), `avatars` (identifiants possédés), `background` (objet `Background` affiché derrière la piste) et `backgrounds` (identifiants possédés). `Avatar` contient `id`, `name`, `emoji`, `color` et `price`. `Background` contient `id`, `name`, `shader` (`null` pour le dégradé de départ, sinon `caustics`, `aurora`, `flux`, `lasers`, `dots`, `sparks` ou `ascii` : fond animé WebGL), `stage`, `deep`, `spotA`, `spotB` (couleurs hexadécimales, décor de secours sans WebGL) et `price`.
 
 Chaque `POST /scores` crédite `floor(score / 100) + 10 × stars` points ; la réponse contient aussi `coinsEarned` et `coins` (nouveau solde).
 

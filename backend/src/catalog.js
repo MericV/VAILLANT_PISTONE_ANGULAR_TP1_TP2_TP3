@@ -35,7 +35,10 @@ export const BACKGROUNDS = [
   { id: "caustics", name: "Caustiques océan", shader: "caustics", stage: "#0c3a5c", deep: "#04121f", spotA: "#2ee6ff", spotB: "#4d7cff", price: 400 },
   { id: "aurora", name: "Aurore boréale", shader: "aurora", stage: "#0b2a3a", deep: "#020814", spotA: "#4dffa6", spotB: "#b48cff", price: 800 },
   { id: "lasers", name: "Lasers de concert", shader: "lasers", stage: "#1b0a2e", deep: "#05020a", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 1500 },
+  { id: "flux", name: "Flux néon", shader: "flux", stage: "#06203a", deep: "#01060f", spotA: "#2ee6ff", spotB: "#4d7cff", price: 1000 },
+  { id: "dots", name: "Vagues de points", shader: "dots", stage: "#1a0626", deep: "#05010a", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 1800 },
   { id: "sparks", name: "Étincelles", shader: "sparks", stage: "#3a1204", deep: "#0a0301", spotA: "#ff8a1f", spotB: "#ffd34d", price: 2500 },
+  { id: "ascii", name: "Tunnel ASCII", shader: "ascii", stage: "#04142a", deep: "#010409", spotA: "#4d7cff", spotB: "#4dffe0", price: 3000 },
 ];
 
 export const STARTER_BACKGROUND = "stage";

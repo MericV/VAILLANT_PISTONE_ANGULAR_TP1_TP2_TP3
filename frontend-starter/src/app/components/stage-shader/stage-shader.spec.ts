@@ -19,7 +19,7 @@ describe('bassLevel', () => {
 
 describe('fragmentSource', () => {
   it('assemble l’en-tête commun et le corps de chaque fond', () => {
-    for (const shader of ['caustics', 'aurora', 'lasers', 'sparks'] as const) {
+    for (const shader of ['caustics', 'aurora', 'lasers', 'sparks', 'flux', 'dots', 'ascii'] as const) {
       const source = fragmentSource(shader);
       expect(source).toContain('uniform float bass;');
       expect(source).toContain('void main()');
