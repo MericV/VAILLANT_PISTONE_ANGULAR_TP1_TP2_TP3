@@ -5,9 +5,9 @@
  * on mesure l'énergie de chacune et on repère les hausses brusques d'énergie
  * (coup de batterie, attaque de corde). Chaque hausse marquée devient une note.
  *
- * Le couloir (lane) de la note dépend de la « brillance » du son au moment de l'attaque,
- * estimée par le taux de passage par zéro : un son grave (grosse caisse, basse) va à gauche,
- * un son aigu (charleston, note haute) va à droite, comme sur un manche de guitare.
+ * Le couloir (lane) de la note dépend de sa hauteur, mesurée par FFT juste après l'attaque :
+ * une note grave va à gauche, une note aiguë à droite, et une même note revient sur la même
+ * touche, comme sur un manche de guitare. Une note qui sonne longtemps devient une note longue.
  */
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
@@ -49,10 +49,17 @@ export const DIFFICULTIES: Record<
   expert: { label: 'Expert', lanes: 5, minGapMs: 110, sensitivity: 1.2, chordShare: 0.3, hopoGapMs: 180, visibleMs: 1000 },
 };
 
-// Notes maintenues : un son qui dure (énergie qui reste haute) avant une longue pause.
-const SUSTAIN_MIN_GAP_MS = 600;
-const SUSTAIN_MAX_MS = 2500;
-const SUSTAIN_ENERGY_RATIO = 0.75;
+// Notes longues : la hauteur reste la même (±1 demi-ton) et le son ne faiblit pas trop.
+const SUSTAIN_MIN_MS = 400;
+const SUSTAIN_MAX_MS = 3000;
+const SUSTAIN_STEP_MS = 100; // on vérifie la tenue du son tous les 100 ms
+const SUSTAIN_ENERGY_RATIO = 0.4; // le son peut descendre à 40 % de son énergie de départ
+// Hauteur mesurée 40 ms après l'attaque : le choc initial (médiator, baguette) brouille le spectre.
+const PITCH_DELAY_MS = 40;
+// Plage où l'on cherche la mélodie : au-dessus du gros de la basse, sous les cymbales.
+const PITCH_BAND = { minHz: 100, maxHz: 1500 };
+// Les couloirs sont répartis selon les hauteurs jouées dans les ±5 s autour de chaque note.
+const LANE_WINDOW_MS = 10000;
 // Phrases Overdrive : 6 notes dorées toutes les 32 attaques, à partir de la 16e.
 const PHRASE_FIRST = 16;
 const PHRASE_EVERY = 32;
@@ -62,26 +69,19 @@ const FRAME = 1024; // ~23 ms à 44,1 kHz
 const HOP = 512; // fenêtres qui se chevauchent de moitié : ~11,6 ms de résolution
 const AVERAGE_WINDOW_S = 0.5; // seuil adaptatif calculé sur ±0,5 s autour de chaque fenêtre
 
-// ponytail: flux d'énergie, simple et rapide (~100 ms pour 3 min). Passer au flux spectral (FFT)
-// si les notes semblent mal placées sur des morceaux très denses ; mesuré 4x plus lent ici.
+// ponytail: attaques par flux d'énergie (rapide) ; la FFT ne sert qu'aux instants des attaques
+// (hauteur, tenue). Passer au flux spectral si les attaques elles-mêmes semblent mal placées.
 export function generateChart(samples: Float32Array, sampleRate: number, difficulty: Difficulty): ChartNote[] {
   const { lanes, minGapMs, sensitivity, chordShare, hopoGapMs } = DIFFICULTIES[difficulty];
   const frameCount = Math.max(0, Math.floor((samples.length - FRAME) / HOP) + 1);
   if (frameCount < 3) return [];
 
-  // 1. Énergie (échelle logarithmique, proche de la perception) et brillance de chaque fenêtre.
+  // 1. Énergie de chaque fenêtre (échelle logarithmique, proche de la perception).
   const energy = new Float32Array(frameCount);
-  const brightness = new Float32Array(frameCount);
   for (let f = 0; f < frameCount; f++) {
-    const start = f * HOP;
     let sum = 0;
-    let crossings = 0;
-    for (let i = start; i < start + FRAME; i++) {
-      sum += samples[i] * samples[i];
-      if (i > start && samples[i] >= 0 !== samples[i - 1] >= 0) crossings++;
-    }
+    for (let i = f * HOP; i < f * HOP + FRAME; i++) sum += samples[i] * samples[i];
     energy[f] = Math.log1p(100 * Math.sqrt(sum / FRAME));
-    brightness[f] = crossings / FRAME;
   }
 
   // 2. Flux : uniquement les hausses d'énergie (une baisse n'est pas une attaque).
@@ -94,7 +94,7 @@ export function generateChart(samples: Float32Array, sampleRate: number, difficu
   const half = Math.max(1, Math.round((AVERAGE_WINDOW_S * sampleRate) / HOP));
 
   // 4. Pics : maximum local, au-dessus du seuil, assez loin de la note précédente.
-  const onsets: { timeMs: number; brightness: number; frame: number; strength: number }[] = [];
+  const onsets: { timeMs: number; sample: number; strength: number }[] = [];
   let lastMs = -Infinity;
   for (let f = 1; f < frameCount - 1; f++) {
     const from = Math.max(0, f - half);
@@ -102,35 +102,61 @@ export function generateChart(samples: Float32Array, sampleRate: number, difficu
     const threshold = ((prefix[to] - prefix[from]) / (to - from)) * sensitivity + 0.02;
     const timeMs = Math.round(((f * HOP + FRAME / 2) / sampleRate) * 1000);
     if (flux[f] > threshold && flux[f] >= flux[f - 1] && flux[f] > flux[f + 1] && timeMs - lastMs >= minGapMs) {
-      onsets.push({ timeMs, brightness: brightness[f], frame: f, strength: flux[f] });
+      onsets.push({ timeMs, sample: f * HOP, strength: flux[f] });
       lastMs = timeMs;
     }
   }
 
-  // 5. Couloirs par quantiles de brillance du morceau : chaque couloir reçoit la même part des notes.
-  const sorted = onsets.map((o) => o.brightness).sort((a, b) => a - b);
-  const bounds = Array.from({ length: lanes - 1 }, (_, q) => sorted[Math.floor(((q + 1) * sorted.length) / lanes)] ?? 0);
-  const laneOf = (o: (typeof onsets)[number]) => bounds.filter((b) => o.brightness > b).length;
+  // 5. Hauteur de chaque attaque, puis notes longues : tant que la même note sonne, le joueur tient
+  //    la touche, et les attaques qui tombent pendant ce maintien sont retirées.
+  const analyse = pitchAnalyser(samples, sampleRate, PITCH_BAND);
+  const delay = Math.round((PITCH_DELAY_MS / 1000) * sampleRate);
+  const step = Math.round((SUSTAIN_STEP_MS / 1000) * sampleRate);
+  const kept: { timeMs: number; strength: number; midi: number | null; durationMs: number }[] = [];
+  let busyUntil = -Infinity;
+  for (const o of onsets) {
+    if (o.timeMs < busyUntil) continue;
+    const base = analyse(o.sample + delay);
+    let held = 0;
+    let misses = 0; // un coup de batterie peut brouiller une mesure isolée : on en tolère une à la suite
+    for (let t = SUSTAIN_STEP_MS; base && t <= SUSTAIN_MAX_MS && misses < 2; t += SUSTAIN_STEP_MS) {
+      const now = analyse(o.sample + delay + (t / SUSTAIN_STEP_MS) * step);
+      const same = now && Math.abs(now.midi - base.midi) <= 1 && now.energy >= SUSTAIN_ENERGY_RATIO * base.energy;
+      misses = same ? 0 : misses + 1;
+      if (same) held = t;
+    }
+    const durationMs = held >= SUSTAIN_MIN_MS ? held : 0;
+    if (durationMs) busyUntil = o.timeMs + durationMs + SUSTAIN_STEP_MS;
+    kept.push({ timeMs: o.timeMs, strength: o.strength, midi: base?.midi ?? null, durationMs });
+  }
 
-  // 6. Accords : les attaques les plus fortes (top `chordShare`) reçoivent une seconde note, deux couloirs plus loin.
-  const strengths = onsets.map((o) => o.strength).sort((a, b) => b - a);
+  // 6. Couloirs selon la hauteur : plus aigu = plus à droite, même note = même touche.
+  //    Le rang est calculé parmi les hauteurs distinctes jouées autour de la note (±5 s) :
+  //    un passage grave utilise tout le manche autant qu'un passage aigu.
+  const lanesOf: number[] = [];
+  for (let i = 0; i < kept.length; i++) {
+    const midi = kept[i].midi;
+    if (midi === null) {
+      lanesOf.push(lanesOf[i - 1] ?? Math.floor(lanes / 2)); // hauteur introuvable : on reste sur place
+      continue;
+    }
+    const nearby = new Set<number>();
+    for (const other of kept) {
+      if (other.midi !== null && Math.abs(other.timeMs - kept[i].timeMs) <= LANE_WINDOW_MS / 2) nearby.add(other.midi);
+    }
+    const below = [...nearby].filter((m) => m < midi).length;
+    lanesOf.push(Math.min(lanes - 1, Math.floor((lanes * below) / nearby.size)));
+  }
+
+  // 7. Accords : les attaques les plus fortes (top `chordShare`) reçoivent une seconde note, deux couloirs plus loin.
+  const strengths = kept.map((o) => o.strength).sort((a, b) => b - a);
   const chordMin = chordShare > 0 ? strengths[Math.floor(chordShare * strengths.length)] ?? Infinity : Infinity;
 
   const notes: ChartNote[] = [];
   let previous: { timeMs: number; lane: number; chord: boolean } | null = null;
-  onsets.forEach((o, i) => {
-    const lane = laneOf(o);
-    const next = onsets[i + 1];
-    const gap = next ? next.timeMs - o.timeMs : Infinity;
-    // 7. Maintien : longue pause ET énergie qui reste haute sur les 70 % de la pause (le son tient).
-    let durationMs = 0;
-    if (gap >= SUSTAIN_MIN_GAP_MS && next) {
-      const end = o.frame + Math.max(1, Math.floor((next.frame - o.frame) * 0.7));
-      let sum = 0;
-      for (let f = o.frame + 1; f <= end; f++) sum += energy[f];
-      if (sum / (end - o.frame) >= SUSTAIN_ENERGY_RATIO * energy[o.frame]) durationMs = Math.min(gap - 200, SUSTAIN_MAX_MS);
-    }
-    const chord = durationMs === 0 && o.strength > chordMin;
+  kept.forEach((o, i) => {
+    const lane = lanesOf[i];
+    const chord = o.durationMs === 0 && o.strength > chordMin;
     // 8. HOPO : note rapprochée, sur un autre couloir, jamais dans ou juste après un accord.
     const hopo =
       hopoGapMs > 0 && !chord && previous !== null && !previous.chord &&
@@ -139,11 +165,84 @@ export function generateChart(samples: Float32Array, sampleRate: number, difficu
     const offset = i - PHRASE_FIRST;
     const phrase = offset >= 0 && offset % PHRASE_EVERY < PHRASE_LENGTH ? Math.floor(offset / PHRASE_EVERY) : -1;
 
-    notes.push({ timeMs: o.timeMs, lane, durationMs, hopo, phrase });
+    notes.push({ timeMs: o.timeMs, lane, durationMs: o.durationMs, hopo, phrase });
     if (chord) notes.push({ timeMs: o.timeMs, lane: lane + 2 < lanes ? lane + 2 : lane - 2, durationMs: 0, hopo: false, phrase });
     previous = { timeMs: o.timeMs, lane, chord };
   });
   return notes;
+}
+
+/**
+ * Prépare une mesure de hauteur sur une bande de fréquences.
+ * La fonction renvoyée prend un instant (en échantillons) et rend la note dominante
+ * (numéro MIDI arrondi au demi-ton : 69 = La 440 Hz) et l'énergie de la bande, ou `null` sur un silence.
+ *
+ * Méthode du « produit spectral harmonique » : une note de fréquence f fait aussi vibrer 2f et 3f.
+ * On cherche la fréquence k qui maximise |X(k)| × |X(2k)| × |X(3k)| : c'est la fondamentale,
+ * même quand une harmonique est plus forte qu'elle (fréquent sur une guitare ou une voix).
+ */
+function pitchAnalyser(samples: Float32Array, sampleRate: number, band: { minHz: number; maxHz: number }) {
+  const size = sampleRate >= 32000 ? 4096 : 2048; // ≈ 93 ms : assez long pour séparer deux demi-tons graves
+  const hann = new Float64Array(size).map((_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / size));
+  const kMin = Math.max(1, Math.ceil((band.minHz * size) / sampleRate));
+  const kMax = Math.min(Math.floor((band.maxHz * size) / sampleRate), Math.floor((size / 2 - 1) / 3));
+  return (start: number): { midi: number; energy: number } | null => {
+    const magnitude = spectrum(samples, start, hann);
+    let energy = 0;
+    for (let k = kMin; k <= kMax; k++) energy += magnitude[k] * magnitude[k];
+    if (energy < 1e-3) return null;
+    let best = kMin;
+    let bestScore = -Infinity;
+    for (let k = kMin; k <= kMax; k++) {
+      const score = Math.log(magnitude[k] + 1e-9) + Math.log(magnitude[2 * k] + 1e-9) + Math.log(magnitude[3 * k] + 1e-9);
+      if (score > bestScore) {
+        bestScore = score;
+        best = k;
+      }
+    }
+    return { midi: Math.round(69 + 12 * Math.log2((best * sampleRate) / size / 440)), energy };
+  };
+}
+
+/** Module du spectre (FFT radix-2 itérative, taille = longueur de la fenêtre) à partir de `start`. */
+function spectrum(samples: Float32Array, start: number, window: Float64Array): Float64Array {
+  const size = window.length;
+  const re = new Float64Array(size);
+  const im = new Float64Array(size);
+  for (let i = 0; i < size; i++) re[i] = (samples[start + i] ?? 0) * window[i];
+  // Permutation par inversion des bits, puis papillons de Cooley-Tukey.
+  for (let i = 1, j = 0; i < size; i++) {
+    let bit = size >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  for (let length = 2; length <= size; length <<= 1) {
+    const angle = (-2 * Math.PI) / length;
+    const wr = Math.cos(angle);
+    const wi = Math.sin(angle);
+    for (let i = 0; i < size; i += length) {
+      let cr = 1;
+      let ci = 0;
+      for (let k = 0; k < length / 2; k++) {
+        const a = i + k;
+        const b = a + length / 2;
+        const tr = re[b] * cr - im[b] * ci;
+        const ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr;
+        im[b] = im[a] - ti;
+        re[a] += tr;
+        im[a] += ti;
+        [cr, ci] = [cr * wr - ci * wi, cr * wi + ci * wr];
+      }
+    }
+  }
+  const magnitude = new Float64Array(size / 2);
+  for (let k = 0; k < size / 2; k++) magnitude[k] = Math.hypot(re[k], im[k]);
+  return magnitude;
 }
 
 /** Mélange les canaux d'un AudioBuffer en un seul signal mono. */

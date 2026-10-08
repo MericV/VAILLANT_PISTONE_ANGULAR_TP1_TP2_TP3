@@ -18,6 +18,25 @@ function clicks(timesMs: number[], durationMs: number): Float32Array {
   return samples;
 }
 
+/**
+ * Notes synthétiques « de guitare » : fondamentale + harmoniques 2 et 3, attaque franche,
+ * sur un léger bruit de fond. La hauteur de chaque note est donc connue exactement.
+ */
+function tones(notes: { startMs: number; durMs: number; hz: number }[], durationMs: number): Float32Array {
+  const out = new Float32Array(Math.round((durationMs / 1000) * RATE));
+  let seed = 3;
+  for (let i = 0; i < out.length; i++) out[i] = 0.002 * (((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1);
+  for (const { startMs, durMs, hz } of notes) {
+    const start = Math.round((startMs / 1000) * RATE);
+    const length = Math.round((durMs / 1000) * RATE);
+    for (let i = 0; i < length && start + i < out.length; i++) {
+      const t = i / RATE;
+      out[start + i] += 0.5 * Math.sin(2 * Math.PI * hz * t) + 0.25 * Math.sin(4 * Math.PI * hz * t) + 0.15 * Math.sin(6 * Math.PI * hz * t);
+    }
+  }
+  return out;
+}
+
 describe('generateChart', () => {
   const expected = [1000, 1500, 2000, 2500, 3000, 3500, 4000];
   const samples = clicks(expected, 5000);
@@ -62,23 +81,46 @@ describe('generateChart', () => {
     expect(new Set(easy.map((n) => n.timeMs)).size).toBe(easy.length);
   });
 
-  it('transforme un son tenu suivi d’une pause en note maintenue', () => {
-    const held = new Float32Array(RATE * 4);
-    let seed = 7;
-    const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
-    for (let i = 0; i < held.length; i++) held[i] = 0.01 * noise();
-    for (let i = RATE; i < RATE * 2.6; i++) held[i] = 0.6 * noise(); // son tenu de 1 s à 2,6 s
-    for (let i = RATE * 3.2; i < RATE * 3.23; i++) held[i] = 0.8 * noise(); // coup sec à 3,2 s
+  it('transforme une note tenue en note longue, et pas les coups secs', () => {
+    // La 220 Hz tenue 1,5 s, puis Mi 330 Hz bref.
+    const chart = generateChart(tones([{ startMs: 500, durMs: 1500, hz: 220 }, { startMs: 2300, durMs: 250, hz: 330 }], 3200), RATE, 'medium');
 
-    const chart = generateChart(held, RATE, 'medium');
-    const [sustain, next] = chart;
-
-    // Le bruit tenu peut déclencher une seconde attaque : le maintien s'arrête 200 ms avant elle.
-    expect(sustain.durationMs).toBeGreaterThan(500);
-    expect(sustain.timeMs + sustain.durationMs).toBeLessThanOrEqual(next.timeMs - 200);
-    expect(chart.at(-1)!.durationMs).toBe(0); // le coup sec final n'est suivi de rien
-    // Des coups secs rapprochés ne sont jamais maintenus.
+    expect(chart).toHaveLength(2);
+    expect(chart[0].durationMs).toBeGreaterThanOrEqual(1000);
+    expect(chart[1].durationMs).toBe(0);
     expect(generateChart(samples, RATE, 'medium').every((n) => n.durationMs === 0)).toBe(true);
+  });
+
+  it('retire les attaques qui tombent pendant une note longue', () => {
+    // Même note réattaquée à 1,2 s (le son baisse puis remonte) : le joueur tient déjà la touche.
+    const held = tones([{ startMs: 500, durMs: 1500, hz: 220 }], 2600);
+    for (let i = Math.round(1.15 * RATE); i < 1.2 * RATE; i++) held[i] *= 0.5;
+
+    const chart = generateChart(held, RATE, 'expert');
+
+    expect(chart[0].durationMs).toBeGreaterThanOrEqual(1000);
+    expect(chart.filter((n) => n.timeMs > 600 && n.timeMs < chart[0].timeMs + chart[0].durationMs)).toEqual([]);
+  });
+
+  it('place une mélodie montante de gauche à droite', () => {
+    const scale = [196, 247, 294, 392, 494, 587].map((hz, i) => ({ startMs: 300 + i * 500, durMs: 250, hz }));
+    const lanes = generateChart(tones(scale, 3600), RATE, 'medium').map((n) => n.lane);
+
+    expect(lanes).toHaveLength(6);
+    expect(lanes).toEqual([...lanes].sort((a, b) => a - b));
+    expect(lanes[0]).toBe(0);
+    expect(lanes.at(-1)).toBe(3);
+  });
+
+  it('remet une même note sur la même touche', () => {
+    const riff = [330, 440, 330, 440, 330, 440].map((hz, i) => ({ startMs: 300 + i * 500, durMs: 250, hz }));
+    const chart = generateChart(tones(riff, 3600), RATE, 'medium');
+    const low = chart.filter((_, i) => i % 2 === 0).map((n) => n.lane);
+    const high = chart.filter((_, i) => i % 2 === 1).map((n) => n.lane);
+
+    expect(new Set(low).size).toBe(1);
+    expect(new Set(high).size).toBe(1);
+    expect(high[0]).toBeGreaterThan(low[0]);
   });
 
   it('marque en HOPO les notes rapprochées sur un autre couloir, jamais en Facile', () => {
