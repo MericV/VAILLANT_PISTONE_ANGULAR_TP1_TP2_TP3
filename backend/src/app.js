@@ -6,7 +6,7 @@ import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import { User } from "./models/User.js";
+import { TAG_PATTERN, User } from "./models/User.js";
 import { Track } from "./models/Track.js";
 import mongoose from "mongoose";
 import { DIFFICULTIES, INSTRUMENTS, Score } from "./models/Score.js";
@@ -682,6 +682,58 @@ export function createApp() {
   });
 
   /* ------------------------------------------------------------------ */
+  /* Amis                                                               */
+  /* ------------------------------------------------------------------ */
+
+  const publicFriend = (friend) => ({ id: friend.id, name: friend.name, tag: friend.tag, avatar: avatarById(friend.avatar) });
+
+  /** Amis de l'utilisateur, par ordre alphabétique. */
+  app.get("/api/friends", auth, async (req, res, next) => {
+    try {
+      const user = await User.findById(req.auth.sub).populate({ path: "friends", options: { sort: { name: 1 } } });
+      if (!user) return res.status(404).json({ message: "Utilisateur inconnu" });
+      res.json(user.friends.map(publicFriend));
+    } catch (error) {
+      console.error("[friends] Erreur de lecture", error);
+      next(error);
+    }
+  });
+
+  /** Ajoute un ami par son identifiant #xxxx. L'amitié est réciproque. */
+  app.post("/api/friends", auth, async (req, res, next) => {
+    try {
+      const tag = String(req.body?.tag ?? "").trim().replace(/^#/, "").toUpperCase();
+      if (!TAG_PATTERN.test(tag)) return res.status(400).json({ message: "Identifiant invalide (ex. #K7P2)" });
+      const friend = await User.findOne({ tag });
+      if (!friend) return res.status(404).json({ message: `Aucun joueur #${tag}` });
+      if (friend.id === req.auth.sub) return res.status(400).json({ message: "C'est votre propre identifiant" });
+      const added = await User.updateOne({ _id: req.auth.sub }, { $addToSet: { friends: friend._id } });
+      if (added.matchedCount === 0) return res.status(404).json({ message: "Utilisateur inconnu" });
+      if (added.modifiedCount === 0) return res.status(409).json({ message: `${friend.name} est déjà votre ami` });
+      await User.updateOne({ _id: friend._id }, { $addToSet: { friends: req.auth.sub } });
+      console.log(`[friends] ${req.auth.sub} et ${friend.id} sont amis`);
+      res.status(201).json(publicFriend(friend));
+    } catch (error) {
+      console.error("[friends] Erreur d'ajout", error);
+      next(error);
+    }
+  });
+
+  /** Retire un ami, des deux côtés. */
+  app.delete("/api/friends/:id", auth, async (req, res, next) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: "Ami inconnu" });
+      const removed = await User.updateOne({ _id: req.auth.sub }, { $pull: { friends: req.params.id } });
+      if (removed.modifiedCount === 0) return res.status(404).json({ message: "Ami inconnu" });
+      await User.updateOne({ _id: req.params.id }, { $pull: { friends: req.auth.sub } });
+      res.status(204).end();
+    } catch (error) {
+      console.error("[friends] Erreur de suppression", error);
+      next(error);
+    }
+  });
+
+  /* ------------------------------------------------------------------ */
   /* Groupes                                                            */
   /* ------------------------------------------------------------------ */
 
@@ -693,12 +745,19 @@ export function createApp() {
   const inviteCode = () =>
     Array.from(crypto.randomBytes(6), (byte) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[byte % 32]).join("");
 
-  /** Crée un groupe dont le créateur est le premier membre. */
+  /**
+   * Crée un groupe dont le créateur est le premier membre et l'hôte du salon. Un seul par joueur.
+   * ponytail: vérification puis création, deux clics simultanés peuvent passer ; index unique sur
+   * ownerId si cela compte (les groupes en double déjà en base devront d'abord être supprimés).
+   */
   app.post("/api/groups", auth, async (req, res, next) => {
     try {
       const name = req.body?.name;
       if (typeof name !== "string" || name.trim().length < 2 || name.trim().length > 40) {
         return res.status(400).json({ message: "Nom de groupe de 2 à 40 caractères requis" });
+      }
+      if (await Group.exists({ ownerId: req.auth.sub })) {
+        return res.status(409).json({ message: "Vous avez déjà créé un groupe" });
       }
       const group = await Group.create({ name, ownerId: req.auth.sub, members: [req.auth.sub], code: inviteCode() });
       console.log(`[groups] Groupe créé : ${group.id}`);
@@ -749,7 +808,7 @@ export function createApp() {
     }
   });
 
-  /** Quitte un groupe. Le dernier membre le supprime ; un propriétaire qui part transmet le groupe. */
+  /** Quitte un groupe. Le créateur (l'hôte) qui part supprime le groupe pour tout le monde. */
   app.post("/api/groups/:id/leave", auth, async (req, res, next) => {
     try {
       const group = await Group.findOneAndUpdate(
@@ -758,12 +817,9 @@ export function createApp() {
         { new: true },
       );
       if (!group) return res.status(404).json({ message: "Groupe inconnu" });
-      if (group.members.length === 0) {
+      if (group.members.length === 0 || String(group.ownerId) === req.auth.sub) {
         await group.deleteOne();
         sessions.delete(group.id);
-      } else if (String(group.ownerId) === req.auth.sub) {
-        group.ownerId = group.members[0];
-        await group.save();
       }
       res.status(204).end();
     } catch (error) {
@@ -830,7 +886,7 @@ export function createApp() {
         "X-Accel-Buffering": "no",
       });
       const groupId = group.id;
-      if (!sessions.has(groupId)) sessions.set(groupId, live.createSession(groupId));
+      if (!sessions.has(groupId)) sessions.set(groupId, live.createSession(groupId, String(group.ownerId)));
       if (!streams.has(groupId)) streams.set(groupId, new Set());
       streams.get(groupId).add(res);
       live.join(sessions.get(groupId), { id: req.auth.sub, name: user.name, avatar: avatarById(user.avatar) });
@@ -844,10 +900,14 @@ export function createApp() {
         const session = sessions.get(groupId);
         if (!session) return;
         live.leave(session, req.auth.sub);
-        if (session.players.size === 0 || ![...session.players.values()].some((p) => p.connections > 0)) {
-          sessions.delete(groupId); // plus personne : le salon disparaît
-        } else {
-          broadcast(groupId);
+        broadcast(groupId);
+        // Plus personne : le salon disparaît, après un délai pour laisser les joueurs passer
+        // du salon à la page de jeu (ils se déconnectent tous au même moment).
+        const empty = () => ![...session.players.values()].some((p) => p.connections > 0);
+        if (empty()) {
+          setTimeout(() => {
+            if (sessions.get(groupId) === session && empty()) sessions.delete(groupId);
+          }, 30_000).unref();
         }
       });
     } catch (error) {

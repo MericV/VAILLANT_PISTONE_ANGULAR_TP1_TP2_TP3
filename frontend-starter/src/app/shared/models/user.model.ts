@@ -32,6 +32,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  /** Identifiant à partager pour être ajouté en ami (4 caractères, affiché « #K7P2 »). */
+  tag: string;
   createdAt: string;
   /** Points gagnés en jouant, à dépenser dans la boutique. */
   coins: number;

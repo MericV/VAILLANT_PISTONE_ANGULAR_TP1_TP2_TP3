@@ -1,13 +1,26 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpDownloadProgressEvent, HttpEventType } from '@angular/common/http';
 import { filter, map, mergeMap, Observable } from 'rxjs';
-import { Group, GroupTrack, LiveState } from '../models/group.model';
+import { Friend, Group, GroupTrack, LiveState } from '../models/group.model';
 import { Difficulty, Instrument } from '../utils/beatmap';
 
-/** Groupes (REST) et parties en direct (flux Server-Sent Events + actions POST). */
+/** Amis, groupes (REST) et parties en direct (flux Server-Sent Events + actions POST). */
 @Injectable({ providedIn: 'root' })
 export class GroupService {
   private readonly http = inject(HttpClient);
+
+  friends() {
+    return this.http.get<Friend[]>('/api/friends');
+  }
+
+  /** `tag` : identifiant d'ami, avec ou sans « # » (le serveur l'accepte des deux façons). */
+  addFriend(tag: string) {
+    return this.http.post<Friend>('/api/friends', { tag });
+  }
+
+  removeFriend(id: string) {
+    return this.http.delete<void>(`/api/friends/${id}`);
+  }
 
   list() {
     return this.http.get<Group[]>('/api/groups');

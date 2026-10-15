@@ -1,14 +1,18 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Group } from '../../shared/models/group.model';
+import { Friend, Group } from '../../shared/models/group.model';
+import { AuthService } from '../../shared/services/auth.service';
 import { GroupService } from '../../shared/services/group.service';
 import { httpErrorMessage } from '../../shared/utils/http-error';
 import { AvatarBadgeComponent } from '../avatar-badge/avatar-badge';
 
-/** Onglet Groupe : créer un groupe, le rejoindre avec un code, ouvrir son salon de jeu. */
+/**
+ * Onglet Groupe : ses amis (ajoutés par leur identifiant #xxxx), créer son groupe (un seul,
+ * dont on est l'hôte), rejoindre celui d'un autre avec un code, ouvrir le salon de jeu.
+ */
 @Component({
   imports: [ReactiveFormsModule, RouterLink, AvatarBadgeComponent],
   templateUrl: './groups-page.html',
@@ -17,11 +21,17 @@ import { AvatarBadgeComponent } from '../avatar-badge/avatar-badge';
 export class GroupsPageComponent {
   private readonly service = inject(GroupService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly auth = inject(AuthService);
 
+  /** Mon identifiant d'ami, affiché pour être partagé. */
+  readonly myTag = computed(() => this.auth.currentUser()?.tag ?? null);
+  readonly friends = signal<Friend[]>([]);
   readonly groups = signal<Group[]>([]);
+  /** Un seul groupe créé par joueur : le formulaire de création disparaît ensuite. */
+  readonly ownsGroup = computed(() => this.groups().some((g) => g.isOwner));
   readonly loading = signal(true);
   readonly error = signal('');
-  /** Action en cours : 'create', 'join' ou l'id du groupe quitté. Une seule à la fois. */
+  /** Action en cours : 'create', 'join', 'friend', l'id du groupe quitté ou de l'ami retiré. Une seule à la fois. */
   readonly busy = signal<string | null>(null);
 
   /*
@@ -37,11 +47,17 @@ export class GroupsPageComponent {
   readonly joinForm = new FormGroup({
     code: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^\s*[A-Za-z0-9]{6}\s*$/)] }),
   });
+  readonly friendForm = new FormGroup({
+    tag: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^\s*#?[A-HJ-NP-Za-hj-np-z2-9]{4}\s*$/)] }),
+  });
   readonly name = this.createForm.controls.name;
   readonly code = this.joinForm.controls.code;
+  readonly tag = this.friendForm.controls.tag;
 
   constructor() {
+    if (!this.auth.currentUser()) this.auth.profile().subscribe({ error: () => undefined });
     this.load();
+    this.service.friends().subscribe({ next: (friends) => this.friends.set(friends), error: () => undefined });
   }
 
   load(): void {
@@ -95,15 +111,49 @@ export class GroupsPageComponent {
     });
   }
 
+  addFriend(): void {
+    if (this.busy()) return;
+    if (this.tag.invalid) {
+      this.tag.markAsTouched();
+      return;
+    }
+    this.busy.set('friend');
+    this.service.addFriend(this.tag.value.trim().replace(/^#/, '').toUpperCase()).subscribe({
+      next: (friend) => {
+        this.busy.set(null);
+        this.tag.reset();
+        this.friends.update((friends) => [...friends, friend].sort((a, b) => a.name.localeCompare(b.name)));
+        this.notify(`${friend.name} fait maintenant partie de vos amis.`);
+      },
+      error: (error: unknown) => this.fail(error, 'Ajout impossible'),
+    });
+  }
+
+  removeFriend(friend: Friend): void {
+    if (this.busy()) return;
+    if (!window.confirm(`Retirer ${friend.name} de vos amis ?`)) return;
+    this.busy.set(friend.id);
+    this.service.removeFriend(friend.id).subscribe({
+      next: () => {
+        this.busy.set(null);
+        this.friends.update((friends) => friends.filter((f) => f.id !== friend.id));
+      },
+      error: (error: unknown) => this.fail(error, 'Impossible de retirer cet ami'),
+    });
+  }
+
   leave(group: Group): void {
     if (this.busy()) return;
-    if (!window.confirm(`Quitter « ${group.name} » ? Il faudra son code pour revenir.`)) return;
+    const question = group.isOwner
+      ? `Supprimer « ${group.name} » ? Tous les membres en sortiront.`
+      : `Quitter « ${group.name} » ? Il faudra son code pour revenir.`;
+    if (!window.confirm(question)) return;
     this.busy.set(group.id);
     this.service.leave(group.id).subscribe({
       next: () => {
         this.busy.set(null);
         this.groups.update((groups) => groups.filter((g) => g.id !== group.id));
-        this.notify(`Vous avez quitté « ${group.name} ».`);
+        this.notify(group.isOwner ? `« ${group.name} » est supprimé.` : `Vous avez quitté « ${group.name} ».`);
       },
       error: (error: unknown) => this.fail(error, 'Impossible de quitter ce groupe'),
     });

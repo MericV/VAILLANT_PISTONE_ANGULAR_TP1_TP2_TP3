@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { createApp } from "../src/app.js";
-import { User } from "../src/models/User.js";
+import { TAG_PATTERN, User } from "../src/models/User.js";
 import { Track } from "../src/models/Track.js";
 import { Score } from "../src/models/Score.js";
 import { AVATARS, avatarById, BACKGROUNDS, coinsFor, STARTER_AVATAR, STARTER_BACKGROUND } from "../src/catalog.js";
@@ -305,6 +305,27 @@ test("groupes : 400 pour un code d'invitation mal formé", async () => {
   const r = await authed("/api/groups/join", { method: "POST", body: JSON.stringify({ code: "abc" }) });
   assert.equal(r.status, 400);
   assert.equal((await r.json()).message, "Code d'invitation invalide");
+});
+
+test("amis : 401 sans JWT", async () => {
+  for (const [method, url] of [["GET", "/api/friends"], ["POST", "/api/friends"], ["DELETE", "/api/friends/123"]]) {
+    assert.equal((await fetch(base + url, { method })).status, 401, `${method} ${url}`);
+  }
+});
+
+test("amis : 400 pour un identifiant mal formé, 404 pour un id d’ami invalide", async () => {
+  for (const tag of [undefined, "", "#ABC", "#ABCDE", "#AB0I", 42]) {
+    const r = await authed("/api/friends", { method: "POST", body: JSON.stringify({ tag }) });
+    assert.equal(r.status, 400, String(tag));
+  }
+  assert.equal((await authed("/api/friends/pas-un-id", { method: "DELETE" })).status, 404);
+});
+
+test("amis : identifiant de 4 caractères attribué à la validation", async () => {
+  const user = new User({ name: "Test", email: "tag@example.com", tag: "K7P2" });
+  assert.equal(user.toPublic().tag, "K7P2");
+  assert.equal(TAG_PATTERN.test("K7P2"), true);
+  assert.equal(TAG_PATTERN.test("K0P2"), false); // pas de 0 : confusion avec O
 });
 
 test("direct : 404 pour un identifiant de groupe invalide", async () => {

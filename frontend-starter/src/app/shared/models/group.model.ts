@@ -2,6 +2,15 @@ import { Difficulty, Instrument } from '../utils/beatmap';
 import { Track } from './track.model';
 import { Avatar } from './user.model';
 
+/** Ami : l'amitié est réciproque (voir API_CONTRACT.md). */
+export interface Friend {
+  id: string;
+  name: string;
+  /** Identifiant à 4 caractères, affiché « #K7P2 ». */
+  tag: string;
+  avatar: Avatar;
+}
+
 /** Groupe de joueurs (voir API_CONTRACT.md). */
 export interface Group {
   id: string;

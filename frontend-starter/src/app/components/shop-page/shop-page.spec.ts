@@ -21,7 +21,7 @@ const backgrounds: Background[] = [
   { id: 'gold', name: 'Salle d’or', shader: 'lasers', stage: '#4a3708', deep: '#140f02', spotA: '#ffd34d', spotB: '#ffffff', price: 2500 },
 ];
 const player = (coins: number, owned: Partial<User> = {}): User => ({
-  id: 'u1', name: 'Léa', email: 'l@x.fr', createdAt: '', coins,
+  id: 'u1', name: 'Léa', email: 'l@x.fr', tag: 'LEA2', createdAt: '', coins,
   avatars: ['rocker', 'fox'], avatar: avatars[0], backgrounds: ['stage'], background: backgrounds[0], ...owned,
 });
 

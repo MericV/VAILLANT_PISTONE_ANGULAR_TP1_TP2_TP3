@@ -7,14 +7,14 @@ const bob = { id: "b", name: "Bob", avatar: {} };
 
 /** Salon avec Alice (hôte) et Bob, morceau choisi. */
 function lobby() {
-  const session = live.createSession("g1");
+  const session = live.createSession("g1", "a"); // Alice a créé le groupe
   live.join(session, alice);
   live.join(session, bob);
   session.track = { id: "t1", title: "Blues" };
   return session;
 }
 
-test("salon : le premier arrivé est l'hôte, chacun démarre non prêt", () => {
+test("salon : le créateur du groupe est l'hôte, chacun démarre non prêt", () => {
   const session = lobby();
   assert.equal(session.hostId, "a");
   assert.equal(live.snapshot(session, 0).players.every((p) => !p.ready && p.connected), true);
@@ -66,6 +66,16 @@ test("partie : changer de page (déconnexion puis retour) ne fait pas quitter la
   assert.equal(live.snapshot(session, 0).players.find((p) => p.id === "a").connected, true);
 });
 
+test("partie : tous les joueurs changent de page en même temps, la partie continue", () => {
+  const session = playing();
+  live.leave(session, "a");
+  live.leave(session, "b");
+  assert.equal(session.state, "playing");
+  live.join(session, alice);
+  live.join(session, bob);
+  assert.equal(live.report(session, "a", { score: 10, combo: 1, done: false }), true);
+});
+
 test("partie : un joueur parti pour de bon ne bloque pas la fin", () => {
   const session = playing();
   live.leave(session, "b");
@@ -73,11 +83,11 @@ test("partie : un joueur parti pour de bon ne bloque pas la fin", () => {
   assert.equal(session.state, "finished");
 });
 
-test("salon : quitter avant le lancement retire le joueur et transmet le rôle d'hôte", () => {
+test("salon : quitter avant le lancement retire le joueur, l'hôte reste le créateur", () => {
   const session = lobby();
   live.leave(session, "a");
   assert.equal(session.players.has("a"), false);
-  assert.equal(session.hostId, "b");
+  assert.equal(session.hostId, "a");
 });
 
 test("nouvelle partie : retour au salon, tout le monde non prêt, absents retirés", () => {

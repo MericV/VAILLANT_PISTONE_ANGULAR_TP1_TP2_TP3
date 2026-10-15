@@ -55,6 +55,10 @@ try {
   const { modifiedCount } = await Score.updateMany({ instrument: { $exists: false } }, { $set: { instrument: "lead" } });
   if (modifiedCount) console.log(`[startup] ${modifiedCount} record(s) rattaché(s) à l'instrument lead`);
   await Score.syncIndexes();
+  // Comptes d'avant les amis : la validation leur attribue un identifiant #xxxx.
+  const untagged = await User.find({ tag: { $exists: false } });
+  for (const user of untagged) await user.save({ validateModifiedOnly: true });
+  if (untagged.length) console.log(`[startup] ${untagged.length} identifiant(s) d'ami attribué(s)`);
 } catch (error) {
   console.error("[startup] Impossible de mettre à jour les index des scores", error);
   throw error;

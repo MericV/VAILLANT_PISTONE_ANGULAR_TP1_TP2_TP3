@@ -13,9 +13,9 @@
 /** Délai entre le clic « Lancer » et la première note : le temps de charger et décoder le morceau. */
 export const START_DELAY_MS = 10_000;
 
-/** Salon d'un groupe : un seul à la fois par groupe. */
-export function createSession(groupId) {
-  return { groupId, state: "lobby", hostId: null, track: null, startAt: null, players: new Map() };
+/** Salon d'un groupe : un seul à la fois par groupe. L'hôte est le créateur du groupe. */
+export function createSession(groupId, hostId) {
+  return { groupId, state: "lobby", hostId, track: null, startAt: null, players: new Map() };
 }
 
 /** Un joueur ouvre le salon (ou y revient pendant la partie, après le changement de page). */
@@ -39,7 +39,6 @@ export function join(session, user) {
     done: false,
     connections: 1,
   });
-  session.hostId ??= user.id;
 }
 
 /**
@@ -53,7 +52,6 @@ export function leave(session, userId) {
   if (player.connections > 0) return;
   if (session.state === "lobby") {
     session.players.delete(userId);
-    if (session.hostId === userId) session.hostId = session.players.keys().next().value ?? null;
   }
   finishIfOver(session);
 }
@@ -89,10 +87,14 @@ export function report(session, userId, { score, combo, done }) {
   return true;
 }
 
-/** La partie se termine quand chaque joueur a fini ou s'est déconnecté. */
+/**
+ * La partie se termine quand chaque joueur a fini ou s'est déconnecté, et qu'au moins un a fini :
+ * au lancement, tous les joueurs quittent le salon en même temps pour ouvrir la page de jeu.
+ */
 function finishIfOver(session) {
   if (session.state !== "playing") return;
-  if ([...session.players.values()].every((p) => p.done || p.connections === 0)) session.state = "finished";
+  const players = [...session.players.values()];
+  if (players.some((p) => p.done) && players.every((p) => p.done || p.connections === 0)) session.state = "finished";
 }
 
 /** Retour au salon après une partie : chacun redevient « pas prêt ». Les absents sont retirés. */
@@ -104,7 +106,6 @@ export function reset(session) {
     if (player.connections === 0) session.players.delete(id);
     else Object.assign(player, { ready: false, score: 0, combo: 0, done: false });
   }
-  if (!session.players.has(session.hostId)) session.hostId = session.players.keys().next().value ?? null;
   return true;
 }
 

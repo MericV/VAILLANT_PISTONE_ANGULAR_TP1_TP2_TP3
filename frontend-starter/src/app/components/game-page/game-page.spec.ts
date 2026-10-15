@@ -302,7 +302,7 @@ describe('GamePageComponent', () => {
 
     it('met à jour le solde de la barre du haut avec la réponse du serveur', async () => {
       scores.submit.mockReturnValue(of({ best: true, record, coinsEarned: 32, coins: 532 }));
-      auth.currentUser.set({ id: 'u1', name: 'Léa', email: 'l@x.fr', createdAt: '', coins: 500, avatars: ['rocker'],
+      auth.currentUser.set({ id: 'u1', name: 'Léa', email: 'l@x.fr', tag: 'LEA2', createdAt: '', coins: 500, avatars: ['rocker'],
         avatar: { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 }, backgrounds: ['stage'], background: lava });
       await create();
       await component.start();
@@ -313,7 +313,7 @@ describe('GamePageComponent', () => {
     });
 
     it('affiche derrière la piste le fond de scène choisi dans la boutique', async () => {
-      auth.currentUser.set({ id: 'u1', name: 'Léa', email: '', createdAt: '', coins: 0, avatars: [], backgrounds: ['lava'],
+      auth.currentUser.set({ id: 'u1', name: 'Léa', email: '', tag: 'LEA2', createdAt: '', coins: 0, avatars: [], backgrounds: ['lava'],
         avatar: { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 }, background: lava });
       await create();
 
@@ -398,6 +398,16 @@ describe('GamePageComponent', () => {
       const [when] = audio.createBufferSource.mock.results[0].value.start.mock.calls[0];
       expect(when).toBeGreaterThan(4); // ≈ 5 s de décompte jusqu'au départ commun
       expect(when).toBeLessThanOrEqual(5);
+    });
+
+    it('en retard sur l’heure commune : la musique part tout de suite, à la position des autres', async () => {
+      history.replaceState({ title: 'Blues', live: { ...launch, startAt: Date.now() - 2000 } }, '');
+      await create();
+
+      const [when, offset] = audio.createBufferSource.mock.results[0].value.start.mock.calls[0];
+      expect(when).toBe(audio.currentTime);
+      expect(offset).toBeGreaterThanOrEqual(2);
+      expect(offset).toBeLessThan(3);
     });
 
     it('affiche les scores du groupe en direct et prévient le groupe à la fin', async () => {

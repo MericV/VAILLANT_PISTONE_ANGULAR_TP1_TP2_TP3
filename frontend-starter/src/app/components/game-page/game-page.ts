@@ -226,8 +226,8 @@ export class GamePageComponent implements OnDestroy {
       this.buffer = await this.audio.decodeAudioData(await blob.arrayBuffer());
       this.samples = toMono(this.buffer);
       this.phase.set('ready');
-      // À plusieurs : départ automatique à l'heure commune (au moins 1 s pour se placer).
-      if (this.live) void this.start(Math.max(1, (this.live.startAt - Date.now()) / 1000));
+      // À plusieurs : départ automatique à l'heure commune.
+      if (this.live) void this.start();
     } catch {
       this.phase.set('error');
       this.error.set('Le navigateur ne sait pas décoder ce fichier audio.');
@@ -271,8 +271,12 @@ export class GamePageComponent implements OnDestroy {
     this.source.connect(analyser);
     analyser.connect(audio.destination);
     this.analyser.set(analyser);
+    // À plusieurs, le délai est calculé ici, juste avant de programmer la musique : la génération
+    // de la partition ci-dessus prend un temps différent sur chaque machine.
+    if (this.live) leadInS = (this.live.startAt - Date.now()) / 1000;
     this.startAt = audio.currentTime + leadInS;
-    this.source.start(this.startAt);
+    // En retard sur l'heure commune : la musique part tout de suite, à la position des autres.
+    this.source.start(Math.max(audio.currentTime, this.startAt), Math.max(0, -leadInS));
     this.source.onended = () => this.finish();
 
     this.lastNow = this.now();

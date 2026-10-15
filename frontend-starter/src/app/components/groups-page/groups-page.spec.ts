@@ -1,30 +1,41 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of, throwError } from 'rxjs';
 import { GroupsPageComponent } from './groups-page';
 import { GroupService } from '../../shared/services/group.service';
 import { Group } from '../../shared/models/group.model';
+import { AuthService } from '../../shared/services/auth.service';
 
 const avatar = { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 };
 const group = (id: string, name: string): Group => ({
-  id, name, code: 'K7QF2M', isOwner: true, members: [{ id: 'u1', name: 'Léa', avatar, isOwner: true }],
+  id, name, code: 'K7QF2M', isOwner: false, members: [{ id: 'u1', name: 'Léa', avatar, isOwner: true }],
 });
+const bob = { id: 'u2', name: 'Bob', tag: 'B0B5', avatar };
 
 describe('GroupsPageComponent', () => {
   let fixture: ComponentFixture<GroupsPageComponent>;
   let component: GroupsPageComponent;
-  let service: { list: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn>; join: ReturnType<typeof vi.fn>; leave: ReturnType<typeof vi.fn> };
+  let service: Record<'list' | 'create' | 'join' | 'leave' | 'friends' | 'addFriend' | 'removeFriend', ReturnType<typeof vi.fn>>;
   let snackBar: { open: ReturnType<typeof vi.fn> };
   const host = () => fixture.nativeElement as HTMLElement;
 
   beforeEach(async () => {
-    service = { list: vi.fn(() => of([group('g1', 'Les Riffs')])), create: vi.fn(), join: vi.fn(), leave: vi.fn() };
+    service = {
+      list: vi.fn(() => of([group('g1', 'Les Riffs')])), create: vi.fn(), join: vi.fn(), leave: vi.fn(),
+      friends: vi.fn(() => of([bob])), addFriend: vi.fn(), removeFriend: vi.fn(),
+    };
     snackBar = { open: vi.fn() };
     TestBed.configureTestingModule({
       imports: [GroupsPageComponent],
-      providers: [provideRouter([]), { provide: GroupService, useValue: service }, { provide: MatSnackBar, useValue: snackBar }],
+      providers: [
+        provideRouter([]),
+        { provide: GroupService, useValue: service },
+        { provide: MatSnackBar, useValue: snackBar },
+        { provide: AuthService, useValue: { currentUser: signal({ tag: 'K7P2' }), profile: vi.fn() } },
+      ],
     });
     fixture = TestBed.createComponent(GroupsPageComponent);
     component = fixture.componentInstance;
@@ -66,6 +77,45 @@ describe('GroupsPageComponent', () => {
     expect(service.join).toHaveBeenCalledWith('K7QF2M');
     expect(snackBar.open).toHaveBeenCalledWith('Groupe complet (4 membres)', 'Fermer', { duration: 5000 });
     expect(component.busy()).toBeNull();
+  });
+
+  it('affiche mon identifiant et mes amis, en ajoute un par son identifiant', async () => {
+    expect(host().querySelector('.my-tag')?.textContent).toContain('#K7P2');
+    expect(host().querySelector('.friend')?.textContent).toContain('#B0B5');
+    service.addFriend.mockReturnValue(of({ ...bob, id: 'u3', name: 'Ana', tag: 'ANA2' }));
+    component.tag.setValue(' #ana2 ');
+
+    component.addFriend();
+    await fixture.whenStable();
+
+    expect(service.addFriend).toHaveBeenCalledWith('ANA2');
+    expect(component.friends().map((f) => f.name)).toEqual(['Ana', 'Bob']);
+  });
+
+  it('refuse un identifiant d’ami mal formé sans appeler le serveur', () => {
+    for (const value of ['#AB', 'K0P2', '#ABCDE']) {
+      component.tag.setValue(value);
+      component.addFriend();
+    }
+    expect(service.addFriend).not.toHaveBeenCalled();
+  });
+
+  it('retire un ami après confirmation', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    service.removeFriend.mockReturnValue(of(undefined));
+
+    component.removeFriend(bob);
+
+    expect(service.removeFriend).toHaveBeenCalledWith('u2');
+    expect(component.friends()).toEqual([]);
+  });
+
+  it('un seul groupe créé : sans formulaire de création, et son créateur le supprime', async () => {
+    component.groups.set([{ ...group('g1', 'Les Riffs'), isOwner: true }]);
+    await fixture.whenStable();
+
+    expect(host().querySelector('input[formControlName="name"]')).toBeNull();
+    expect(host().querySelector('.group button.danger')?.textContent).toContain('Supprimer le groupe');
   });
 
   it('quitte un groupe après confirmation', () => {
