@@ -108,6 +108,8 @@ export class GamePageComponent implements OnDestroy {
   readonly difficulties = (Object.keys(DIFFICULTIES) as Difficulty[]).map((value) => ({ value, ...DIFFICULTIES[value] }));
 
   readonly phase = signal<Phase>('loading');
+  /** À plusieurs : le navigateur refuse le son sans clic récent (Safari) ; un clic rejoint la partie. */
+  readonly audioBlocked = signal(false);
   readonly error = signal('');
   readonly difficulty = signal<Difficulty>('medium');
   readonly instruments = (Object.keys(INSTRUMENTS) as Instrument[]).map((value) => ({ value, ...INSTRUMENTS[value] }));
@@ -239,7 +241,16 @@ export class GamePageComponent implements OnDestroy {
     const audio = this.audio;
     if (!audio || !this.buffer || !this.samples) return;
     this.stopMusic();
-    await audio.resume(); // l'audio n'est autorisé qu'après un geste de l'utilisateur
+    // L'audio n'est autorisé qu'après un geste de l'utilisateur. Au départ automatique d'une partie
+    // à plusieurs, certains navigateurs laissent resume() en attente : on demande alors un clic.
+    const resumed = audio.resume();
+    if (this.live) await Promise.race([resumed, new Promise((done) => setTimeout(done, 1500))]);
+    else await resumed;
+    if (audio.state !== 'running') {
+      this.audioBlocked.set(true);
+      return;
+    }
+    this.audioBlocked.set(false);
 
     this.playedDifficulty = this.difficulty();
     this.playedInstrument.set(this.instrument());
@@ -541,7 +552,7 @@ export class GamePageComponent implements OnDestroy {
 
     if (now < 0) {
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'italic 900 120px Archivo, system-ui, sans-serif';
+      ctx.font = "italic 120px 'Russo One', system-ui, sans-serif";
       ctx.textAlign = 'center';
       ctx.fillText(String(Math.ceil(-now / 1000)), CENTER_X, HEIGHT / 2);
     }

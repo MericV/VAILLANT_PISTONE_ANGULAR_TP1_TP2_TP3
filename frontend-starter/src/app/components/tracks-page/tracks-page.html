@@ -43,7 +43,10 @@
         <p class="error" role="alert">{{ error() }}</p>
       }
       @if (loading()) {
-        <p class="status" role="status">Chargement…</p>
+        <div class="skeleton-list" role="status" aria-busy="true">
+          <span class="visually-hidden">Chargement…</span>
+          <span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span>
+        </div>
       }
 
       <ul class="tracks" [attr.aria-busy]="loading()">

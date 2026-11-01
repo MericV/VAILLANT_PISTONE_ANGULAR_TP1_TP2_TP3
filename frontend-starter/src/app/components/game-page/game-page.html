@@ -26,7 +26,14 @@
     }
     @case ('ready') {
       @if (live) {
-        <p class="panel status" role="status">Départ synchronisé avec le groupe…</p>
+        @if (audioBlocked()) {
+          <div class="panel setup">
+            <p>Le navigateur attend un clic pour lancer le son. La partie a commencé : vous la rejoignez au même endroit que le groupe.</p>
+            <button type="button" class="go" (click)="start()">Rejoindre la partie</button>
+          </div>
+        } @else {
+          <p class="panel status" role="status">Départ synchronisé avec le groupe…</p>
+        }
       } @else {
       <div class="panel setup">
         <fieldset class="difficulty">

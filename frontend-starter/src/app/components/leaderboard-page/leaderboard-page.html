@@ -19,7 +19,10 @@
     <button type="button" class="ghost" (click)="load()">Réessayer</button>
   }
   @if (loading()) {
-    <p class="status" role="status">Chargement du classement…</p>
+    <div class="skeleton-list" role="status" aria-busy="true">
+      <span class="visually-hidden">Chargement du classement…</span>
+      <span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span>
+    </div>
   }
 
   <ol class="ranking" [attr.aria-busy]="loading()">

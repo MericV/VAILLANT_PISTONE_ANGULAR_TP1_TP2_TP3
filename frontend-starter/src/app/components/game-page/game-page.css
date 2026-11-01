@@ -9,7 +9,7 @@
 
 .game-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 0.25rem 1rem; max-width: 760px; margin: 0 auto 1rem; }
 .game-head a { grid-column: 1 / -1; font-size: 0.9rem; }
-.game-head h1 { font-size: clamp(1.6rem, 4.5vw, 2.6rem); font-style: italic; font-weight: 900; font-stretch: 125%; overflow-wrap: anywhere; }
+.game-head h1 { font-size: clamp(1.6rem, 4.5vw, 2.6rem); font-style: italic; font-weight: 900; font-family: var(--font-display); overflow-wrap: anywhere; }
 .stop { align-self: center; }
 
 /* Panneaux (réglages, résultats) : verre sombre posé sur la scène. */
@@ -31,7 +31,7 @@ kbd { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; font: i
 .offset input { padding: 0; accent-color: var(--neon); }
 
 /* Bouton principal : le seul élément « néon plein » hors de la piste. */
-button.go:not([class*='mat-']) { width: 100%; margin-top: 0.5rem; padding: 0.85rem; color: #ffffff; font-size: 1.15rem; font-style: italic; font-weight: 900; font-stretch: 120%; background: linear-gradient(180deg, #a77bff, #6a2fe0); border: 0; border-radius: 999px; box-shadow: 0 0 22px rgb(167 123 255 / 0.55); }
+button.go:not([class*='mat-']) { width: 100%; margin-top: 0.5rem; padding: 0.85rem; color: #ffffff; font-size: 1.15rem; font-style: italic; font-weight: 900; font-family: var(--font-display); background: linear-gradient(180deg, #a77bff, #6a2fe0); border: 0; border-radius: 999px; box-shadow: 0 0 22px rgb(167 123 255 / 0.55); }
 
 /* ---- Partie ---- */
 .play { --tier: var(--tier-0); display: grid; gap: 0.6rem; width: min(100%, 760px, calc((100dvh - 330px) * 640 / 560)); margin-inline: auto; }
@@ -42,13 +42,13 @@ button.go:not([class*='mat-']) { width: 100%; margin-top: 0.5rem; padding: 0.85r
 .stage { display: block; width: 100%; aspect-ratio: 640 / 560; }
 
 /* Jugement façon Festival : italique très large, à gauche de la piste, près de la ligne de frappe. */
-.feedback { position: absolute; top: 70%; left: 0; margin: 0; color: #ffffff; font-size: clamp(1.3rem, 4vw, 2rem); font-style: italic; font-weight: 900; font-stretch: 125%; text-transform: capitalize; text-shadow: 0 0 12px rgb(180 140 255 / 0.9); pointer-events: none; animation: pop 450ms ease-out forwards; }
+.feedback { position: absolute; top: 70%; left: 0; margin: 0; color: #ffffff; font-size: clamp(1.3rem, 4vw, 2rem); font-style: italic; font-weight: 900; font-family: var(--font-display); text-transform: capitalize; text-shadow: 0 0 12px rgb(180 140 255 / 0.9); pointer-events: none; animation: pop 450ms ease-out forwards; }
 .feedback.perfect { color: var(--gold); text-shadow: 0 0 14px rgb(255 201 60 / 0.8); }
 .feedback.miss { color: #ff8a9a; text-shadow: none; }
 @keyframes pop { from { opacity: 1; transform: translateY(0) scale(1.15); } to { opacity: 0; transform: translateY(-12px) scale(1); } }
 
 /* Badge du multiplicateur, posé à cheval sur le bas de la piste. Sa couleur suit le palier. */
-.multiplier { position: absolute; bottom: -1.4rem; left: 50%; display: grid; place-items: center; width: 4.2rem; height: 4.2rem; margin: 0; translate: -50% 0; color: #ffffff; font-size: 1.5rem; font-style: italic; font-weight: 900; font-stretch: 120%; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--tier) 70%, #ffffff), var(--tier) 70%); border: 3px solid rgb(255 255 255 / 0.85); border-radius: 50%; box-shadow: 0 0 22px var(--tier); transition: background 300ms, box-shadow 300ms; }
+.multiplier { position: absolute; bottom: -1.4rem; left: 50%; display: grid; place-items: center; width: 4.2rem; height: 4.2rem; margin: 0; translate: -50% 0; color: #ffffff; font-size: 1.5rem; font-style: italic; font-weight: 900; font-family: var(--font-display); background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--tier) 70%, #ffffff), var(--tier) 70%); border: 3px solid rgb(255 255 255 / 0.85); border-radius: 50%; box-shadow: 0 0 22px var(--tier); transition: background 300ms, box-shadow 300ms; }
 
 .combo-bar { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; gap: 4px; width: 78%; margin: 1.6rem auto 0; }
 .segment { height: 8px; overflow: hidden; background: rgb(255 255 255 / 0.12); border-radius: 999px; }
@@ -64,7 +64,7 @@ button.go:not([class*='mat-']) { width: 100%; margin-top: 0.5rem; padding: 0.85r
 .hud-score { padding: 0.6rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
 .score { display: flex; align-items: baseline; gap: 1rem; margin: 0.2rem 0 0; }
 .score span { color: var(--muted); font-size: 0.85rem; font-weight: 700; }
-.score b { font-size: clamp(1.9rem, 5vw, 2.6rem); font-style: italic; font-weight: 900; font-stretch: 120%; line-height: 1; font-variant-numeric: tabular-nums; }
+.score b { font-size: clamp(1.9rem, 5vw, 2.6rem); font-style: italic; font-weight: 900; font-family: var(--font-display); line-height: 1; font-variant-numeric: tabular-nums; }
 
 /* Étoiles : une étoile pleine dorée par palier atteint, la suivante se remplit de gauche à droite. */
 .stars { display: flex; gap: 0.2rem; margin: 0; }
@@ -93,14 +93,14 @@ button.pad:not([class*='mat-']):active { color: #140a33; background: var(--lane)
 
 /* ---- Résultats ---- */
 .result { text-align: center; }
-.final-score { margin: 0.5rem 0 0; font-size: clamp(2.4rem, 8vw, 3.6rem); font-style: italic; font-weight: 900; font-stretch: 125%; line-height: 1; font-variant-numeric: tabular-nums; }
+.final-score { margin: 0.5rem 0 0; font-size: clamp(2.4rem, 8vw, 3.6rem); font-style: italic; font-weight: 900; font-family: var(--font-display); line-height: 1; font-variant-numeric: tabular-nums; }
 .result dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 0.75rem; margin: 1.25rem 0; }
 .result dt { color: var(--muted); font-size: 0.8rem; }
 .result dd { margin: 0; font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .actions { display: grid; gap: 0.5rem; }
 .save { min-height: 1.75rem; margin-top: 0.5rem; }
 /* Record battu : le seul moment doré de l'écran de résultats. */
-.record { margin: 0; color: var(--gold); font-size: 1.2rem; font-style: italic; font-weight: 900; font-stretch: 120%; text-shadow: 0 0 12px rgb(255 201 60 / 0.6); }
+.record { margin: 0; color: var(--gold); font-size: 1.2rem; font-style: italic; font-weight: 900; font-family: var(--font-display); text-shadow: 0 0 12px rgb(255 201 60 / 0.6); }
 .coins { margin: 0 0 0.25rem; color: var(--link); font-weight: 700; }
 .ghost-link { padding: 0.5rem; color: var(--link); text-align: center; }
 

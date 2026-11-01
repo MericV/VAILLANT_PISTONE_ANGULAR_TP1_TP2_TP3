@@ -26,6 +26,7 @@ function samplesWithClickAt1s(): Float32Array {
 /** Double d'AudioContext : l'horloge `currentTime` est pilotée par le test. */
 class FakeAudioContext {
   currentTime = 0;
+  state: AudioContextState = 'running';
   destination = {};
   resume = vi.fn(async () => undefined);
   close = vi.fn(async () => undefined);
@@ -398,6 +399,31 @@ describe('GamePageComponent', () => {
       const [when] = audio.createBufferSource.mock.results[0].value.start.mock.calls[0];
       expect(when).toBeGreaterThan(4); // ≈ 5 s de décompte jusqu'au départ commun
       expect(when).toBeLessThanOrEqual(5);
+    });
+
+    it('son bloqué par le navigateur : un clic sur « Rejoindre la partie » lance la musique', async () => {
+      vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+        constructor() {
+          super();
+          this.state = 'suspended';
+          this.resume = vi.fn(() => new Promise<undefined>(() => undefined)); // Safari : attend un geste
+          audio = this;
+        }
+      });
+      history.replaceState({ title: 'Blues', live: { ...launch, startAt: Date.now() + 1000 } }, '');
+      await create();
+      await new Promise((resolve) => setTimeout(resolve, 1700));
+      fixture.detectChanges();
+      expect(component.audioBlocked()).toBe(true);
+      expect(component.phase()).toBe('ready');
+      const join = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find((b) => b.textContent?.includes('Rejoindre la partie'));
+      expect(join).toBeDefined();
+
+      audio.state = 'running'; // le clic autorise le son
+      audio.resume = vi.fn(async () => undefined);
+      await component.start();
+      expect(component.audioBlocked()).toBe(false);
+      expect(component.phase()).toBe('playing');
     });
 
     it('en retard sur l’heure commune : la musique part tout de suite, à la position des autres', async () => {

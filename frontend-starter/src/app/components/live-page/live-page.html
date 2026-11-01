@@ -24,6 +24,10 @@
         }
       </div>
     }
+    <!-- Partie abandonnée en route (onglet fermé…) : l'hôte ramène tout le monde au salon. -->
+    @if (state.state === 'playing' && isHost()) {
+      <button type="button" class="ghost" (click)="reset()" [disabled]="sending()">Arrêter la partie et revenir au salon</button>
+    }
 
     <div class="layout">
       <section class="card" aria-labelledby="players-title">

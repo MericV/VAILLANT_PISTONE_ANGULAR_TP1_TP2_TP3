@@ -12,7 +12,7 @@ header p { color: var(--muted); }
 .ranking { display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
 .ranking li { display: grid; grid-template-columns: 2.5rem auto minmax(0, 1fr) auto auto 7rem; align-items: center; gap: 1rem; padding: 0.7rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .ranking li.empty { display: block; color: var(--muted); }
-.rank { font-size: 1.3rem; font-style: italic; font-weight: 900; font-stretch: 120%; color: var(--muted); }
+.rank { font-size: 1.3rem; font-style: italic; font-weight: 900; font-family: var(--font-display); color: var(--muted); }
 .podium .rank { color: var(--brass); }
 .name { font-weight: 650; overflow-wrap: anywhere; }
 .name small { color: var(--muted); font-weight: 400; }
@@ -26,4 +26,6 @@ header p { color: var(--muted); }
   .ranking li { grid-template-columns: 2rem auto minmax(0, 1fr) auto; }
   .stars, .played { display: none; }
 }
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.ranking li { transition: transform var(--fast) var(--ease), border-color var(--fast) var(--ease); }
+.ranking li:hover { transform: translateX(4px); border-color: var(--accent); }

@@ -17,7 +17,10 @@
       <button type="button" class="ghost" (click)="load()">Réessayer</button>
     }
     @if (loading()) {
-      <p class="status" role="status">Chargement de la boutique…</p>
+      <div class="skeleton-list" role="status" aria-busy="true">
+        <span class="visually-hidden">Chargement de la boutique…</span>
+        <span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span>
+      </div>
     }
 
     <!-- Un rayon par onglet : on passe de l'un à l'autre sans faire défiler la page (flèches du clavier aussi). -->

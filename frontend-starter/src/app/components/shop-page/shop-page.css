@@ -4,11 +4,11 @@
 
 /* ---- En-tête : titre de scène et portefeuille ---- */
 .shop-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-.shop-head h1 { font-style: italic; font-weight: 900; font-stretch: 125%; }
+.shop-head h1 { font-style: italic; font-weight: 900; font-family: var(--font-display); }
 .shop-head p { margin: 0.25rem 0 0; color: var(--muted); }
 .wallet { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.45rem 1rem 0.45rem 0.6rem; background: rgb(0 0 0 / 0.3); border: 1px solid rgb(255 201 60 / 0.35); border-radius: 999px; }
 .shop-head .wallet { margin: 0; color: var(--fg); }
-.wallet b { font-size: 1.6rem; font-style: italic; font-weight: 900; font-stretch: 120%; font-variant-numeric: tabular-nums; line-height: 1; }
+.wallet b { font-size: 1.6rem; font-style: italic; font-weight: 900; font-family: var(--font-display); font-variant-numeric: tabular-nums; line-height: 1; }
 .wallet span:last-child { color: var(--muted); font-size: 0.85rem; }
 /* Pièce dorée dessinée en CSS : reflet en haut à gauche, liseré plus sombre. */
 .coin { display: inline-block; width: 1.4rem; height: 1.4rem; background: radial-gradient(circle at 35% 30%, #fff3c4, var(--gold) 45%, #b8860b); border: 2px solid #8a6408; border-radius: 50%; box-shadow: 0 0 10px rgb(255 201 60 / 0.5); vertical-align: middle; }
@@ -16,7 +16,7 @@
 
 /* ---- Onglets : pastilles claires sur la scène, onglet actif souligné de néon ---- */
 .shelves {
-  --mat-tab-label-text-font: Archivo, system-ui, sans-serif;
+  --mat-tab-label-text-font: var(--font-body);
   --mat-tab-label-text-weight: 800;
   --mat-tab-label-text-size: 1rem;
   --mat-tab-active-label-text-color: var(--fg);
@@ -75,7 +75,7 @@
 
 /* Boutons : achat doré (l'action qui dépense), équipement en néon discret. */
 button.buy:not([class*='mat-']), button.equip:not([class*='mat-']) { width: 100%; padding: 0.55rem; font-weight: 800; border-radius: 999px; }
-button.buy:not([class*='mat-']) { display: flex; align-items: center; justify-content: center; gap: 0.4rem; color: #1c1300; font-style: italic; font-stretch: 115%; background: linear-gradient(180deg, #ffe08a, var(--gold)); border: 0; box-shadow: 0 4px 16px -6px var(--gold); }
+button.buy:not([class*='mat-']) { display: flex; align-items: center; justify-content: center; gap: 0.4rem; color: #1c1300; font-style: italic; font-family: var(--font-display); background: linear-gradient(180deg, #ffe08a, var(--gold)); border: 0; box-shadow: 0 4px 16px -6px var(--gold); }
 button.equip:not([class*='mat-']) { color: var(--fg); background: rgb(180 140 255 / 0.14); border: 1px solid var(--neon); }
 
 /* Progression vers un article verrouillé : combien de points déjà gagnés sur son prix. */
@@ -85,3 +85,7 @@ button.equip:not([class*='mat-']) { color: var(--fg); background: rgb(180 140 25
 /* Aperçu d'un fond : format paysage avec une mini-piste en perspective au centre. */
 .preview { position: relative; isolation: isolate; display: grid; place-items: end center; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08); }
 .mini-road { width: 46%; height: 78%; background: linear-gradient(180deg, transparent, rgb(78 40 170 / 0.85)); border-inline: 2px solid #b48cff; clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%); }
+
+/* Survol : la carte se soulève et s'éclaire de sa rareté (transform seul : fluide). */
+.item { transition: transform var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+.item:hover { transform: translateY(-4px); box-shadow: 0 12px 28px -10px var(--rarity); }

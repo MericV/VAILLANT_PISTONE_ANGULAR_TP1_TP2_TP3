@@ -7,7 +7,7 @@
   display: flex; justify-content: center; padding-top: 1.1rem;
   background: var(--photo) center bottom / auto 82% no-repeat, var(--panel);
 }
-.artists span { color: var(--label, #1b1f2a); font-size: 1.35rem; font-weight: 800; font-stretch: 118%; }
+.artists span { color: var(--label, #1b1f2a); font-size: 1.35rem; font-weight: 800; font-family: var(--font-display); }
 /* Voile sombre en bas pour que le titre reste lisible au-dessus des photos. */
 .artists-hero::after { content: ''; position: absolute; inset: auto 0 0; height: 55%; background: linear-gradient(transparent, var(--ink) 85%); pointer-events: none; }
 .artists-hero h1, .artists-hero p { position: relative; z-index: 1; }
@@ -18,7 +18,7 @@
 
 .tracklist { padding: 1.25rem 1.5rem 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .tracklist-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
-.count { margin-left: 0.35rem; padding: 0.05rem 0.5rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; font-stretch: 100%; background: var(--surface-alt); border-radius: 999px; }
+.count { margin-left: 0.35rem; padding: 0.05rem 0.5rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; background: var(--surface-alt); border-radius: 999px; }
 .status { color: var(--muted); }
 .tracks { margin: 0; padding: 0; list-style: none; }
 .tracks li + li { border-top: 1px solid var(--border); }

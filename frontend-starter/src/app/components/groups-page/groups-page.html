@@ -55,7 +55,10 @@
     <button type="button" class="ghost" (click)="load()">Réessayer</button>
   }
   @if (loading()) {
-    <p class="status" role="status">Chargement…</p>
+    <div class="skeleton-list" role="status" aria-busy="true">
+      <span class="visually-hidden">Chargement…</span>
+      <span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span>
+    </div>
   }
   <ul class="list">
     @for (group of groups(); track group.id) {
