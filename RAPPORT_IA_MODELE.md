@@ -1,278 +1,177 @@
 # Rapport d'usage de l'IA - TP1 à TP3
 
-Ce document est mis à jour après chaque séance de travail avec l'assistant IA. Les secrets, mots de passe et JWT ne sont jamais copiés dans ce rapport.
+**Binôme :** Meric VAILLANT et Noa PISTONE.
+Chaque TP est partagé en deux parties à peu près égales, une par membre du binôme.
+Chacun a relu la partie de l'autre et sait l'expliquer.
+
+## Cadre commun
+
+- **Assistants :** GitHub Copilot (VS Code, mode chat) pour le TP1 et le début du TP2 ; Claude Code (extension VS Code), modèle Claude Opus 5.5, pour la fin du TP2 et le TP3.
+- **Consommation de tokens :** `/cost` ou `/usage` dans Claude Code ; tableau de bord d'utilisation du compte GitHub pour Copilot.
+- **Choix du modèle :** documentation de l'éditeur et consignes de l'enseignant. On prend un modèle rapide pour les tâches simples et un modèle de raisonnement pour l'architecture ou le débogage.
+- **Cadre donné à l'IA :** [`DOCTRINE.md`](DOCTRINE.md), référencée depuis `CLAUDE.md`, `AGENTS.md` et `GEMINI.md`. Skill officiel Angular installé après lecture de son contenu (`npx skills add https://github.com/angular/skills`).
+- **Sécurité :** aucune URI MongoDB, aucun secret JWT ni mot de passe dans les prompts, le dépôt ou ce rapport. `backend/.env` est ignoré par Git.
 
-## Assistant utilisé
+## Grille de vérification des missions
 
-- TP1 et début du TP2 : GitHub Copilot.
-- Fin du TP2 et TP3 : Claude Code (extension VS Code), modèle Claude Opus 5.5 (voir la section « Session Claude Code »).
-- Usage : lecture du dépôt, diagnostic des erreurs, aide à l'implémentation, vérification des builds et préparation des preuves Network.
-- Règle de sécurité : aucune URI MongoDB complète, aucun secret JWT et aucun mot de passe ne sont conservés dans le rapport ou les captures.
+Chaque partie ci-dessous détaille, dans cet ordre :
 
-## Mission 0 - Préparation et cartographie
-
-### Objectif
-
-Démarrer MongoDB Atlas, le backend et le frontend Angular, puis comprendre le trajet d'une requête de connexion.
-
-### Travail réalisé avec l'assistant
-
-- Lecture de `README.md`, `ATLAS_SETUP.md`, `API_CONTRACT.md` et des sujets TP1 à TP3.
-- Configuration du backend avec un fichier local `backend/.env`, ignoré par Git.
-- Correction de l'URI MongoDB pour utiliser l'utilisateur de test `admin` et la base `guitar-practice-cloud`.
-- Vérification du proxy Angular : `/api` cible `http://localhost:3000` dans `frontend-starter/proxy.conf.json`.
-- Mise à jour de Node.js via Homebrew vers `v26.8.2`, requise par Angular CLI 22.
-
-### Vérifications
-
-- `GET http://localhost:3000/api/health` renvoie `{"status":"ok"}`.
-- Le backend affiche une connexion réussie à MongoDB Atlas et crée le compte de démonstration.
-- Le frontend Angular compile avec `npm run build`.
-- Le frontend répond sur `http://localhost:4200/` avec HTTP `200`.
-
-### Livrable
-
-- [Schéma annoté du flux de connexion](SCHEMA_FLUX_TP1.md)
-
-Le schéma décrit le trajet :
-
-```text
-LoginPageComponent -> AuthService -> HttpClient -> proxy Angular -> API Express -> MongoDB Atlas
-```
-
-## Mission 1 - Authentification et profil
-
-### Objectif
-
-Compléter les formulaires, l'état d'authentification, la déconnexion et la gestion du profil utilisateur.
-
-### Modifications réalisées
-
-- Ajout d'états de chargement dans la connexion et l'inscription.
-- Validation visible de l'email, du nom et du mot de passe.
-- Validation frontend du mot de passe avec un minimum de 8 caractères.
-- Ajout d'un bouton de déconnexion dans le composant racine.
-- Suppression du token dans `localStorage` et remise à zéro des Signals lors de la déconnexion.
-- Gestion d'un `401` dans l'intercepteur : nettoyage de l'authentification et redirection vers `/login`.
-- Chargement automatique du profil à l'ouverture de la page profil.
-- Messages d'erreur et états de sauvegarde pour la lecture et la modification du profil.
-
-### Fichiers concernés
-
-- `frontend-starter/src/app/components/app/app.ts`
-- `frontend-starter/src/app/components/app/app.html`
-- `frontend-starter/src/app/components/login-page/login-page.ts`
-- `frontend-starter/src/app/components/login-page/login-page.html`
-- `frontend-starter/src/app/components/register-page/register-page.ts`
-- `frontend-starter/src/app/components/register-page/register-page.html`
-- `frontend-starter/src/app/components/profile-page/profile-page.ts`
-- `frontend-starter/src/app/components/profile-page/profile-page.html`
-- `frontend-starter/src/app/shared/interceptors/auth.interceptor.ts`
-
-### Preuves Network
-
-- [Connexion réussie](preuves/tp1/image.png) : `POST /api/auth/login`, `200 OK`.
-- [Connexion refusée](preuves/tp1/image-1.png) : `POST /api/auth/login`, `401 Unauthorized`.
-- [Modification du profil](preuves/tp1/image-2.png) : `PUT /api/users/me`, `200 OK`.
-
-La troisième capture doit être conservée avec la valeur réelle de l'en-tête `Authorization` masquée.
-
-### Audit des preuves au 17 septembre 2026
-
-- Captures 1 et 2 : conformes, avec respectivement `200 OK` et `401 Unauthorized`.
-- Capture 3 : techniquement conforme (`PUT /api/users/me`, `200 OK`), mais la version actuellement enregistrée affiche encore le JWT dans l'en-tête `Authorization`. Elle doit être remplacée par une capture recadrée ou masquée avant rendu.
-
-## TP2 - Bibliothèque, upload et lecture audio
-
-Une première passe (GitHub Copilot) avait ajouté la validation locale, les états d'envoi et la révocation de l'ObjectURL dans un composant unique. La seconde passe (Claude Code) a découpé la page, ajouté le Paginator Material et les cards, et réécrit les tests.
-
-### Mission 2 - Bibliothèque paginée
-
-- `TrackService.list(page, limit)` transmet réellement `page` et `limit` (`HttpParams`).
-- Signals de `TracksPageComponent` : `tracks`, `page`, `limit`, `total`, `pages`, `loading`, `error`.
-- Template : `@for (...; track track.id)`, `@empty` pour la bibliothèque vide, `@if` pour le chargement et l'erreur.
-- **Avancé réalisé :** `mat-paginator` d'Angular Material (boutons page précédente et suivante désactivés aux bornes, choix de 5, 10 ou 20 pistes par page, libellés traduits via `FrenchPaginatorIntl`). `pageIndex` (qui commence à 0) est converti en `page` (qui commence à 1) dans `onPage()`.
-- Chaque changement de page appelle le serveur. Si une requête est encore en cours, elle est annulée (`unsubscribe`) : la dernière page demandée gagne.
-- Pagination Mongoose (`aggregate-paginate-v2`) : non réalisée (option facultative, elle modifie le backend et le contrat).
-
-### Mission 3 - Analyse du flux upload et lecture
-
-| Étape | Fichier | Méthode |
-|---|---|---|
-| Choix du fichier | `components/track-upload/track-upload.ts` | `choose()` |
-| Validation locale (MIME + 25 Mo) | `shared/utils/audio-file.ts` | `validateAudioFile()` |
-| Construction du `FormData` (`audio`, `title`) | `shared/services/track.service.ts` | `upload()` |
-| Appel HTTP d'upload | `shared/services/track.service.ts` | `http.post(..., { observe: 'events' })` |
-| Ajout du JWT | `shared/interceptors/auth.interceptor.ts` | `authInterceptor` |
-| Contrôles serveur | `backend/src/app.js` | `auth`, `upload.single("audio")`, `fileFilter`, `limits.fileSize`, `!req.file` |
-| Récupération du `Blob` | `shared/services/track.service.ts` | `audio()` avec `responseType: 'blob'` |
-| Création de l'`ObjectURL`, affectation au `<audio>` | `components/tracks-page/tracks-page.ts` | `play()` → `audioUrl` → `[src]` |
-| Révocation | `components/tracks-page/tracks-page.ts` | `releaseAudio()` appelée dans `play()`, `stopPlayer()`, `ngOnDestroy()` |
-
-Flux d'upload : `TrackUploadComponent → TrackService.upload() → HttpClient → authInterceptor → proxy → POST /api/tracks → Multer (disque) → MongoDB (métadonnées)`.
-Flux de lecture : `TracksPageComponent.play() → TrackService.audio() → GET /api/tracks/:id/audio (JWT) → res.sendFile → Blob → URL.createObjectURL → <audio>`.
-
-**Pourquoi une URL directement placée dans `src` ne reçoit pas le header :** c'est le navigateur qui télécharge le média d'un `<audio src="...">`, en dehors d'Angular. `HttpClient` et donc l'intercepteur ne participent pas à cette requête : aucun `Authorization` n'est ajouté et le backend répond `401`.
-
-**Pourquoi valider côté frontend si le backend valide déjà :** le message est immédiat et on évite d'envoyer 25 Mo pour rien. Mais n'importe quel client (curl, Postman, script) peut appeler l'API sans passer par Angular : seule la validation Multer protège réellement le serveur.
-
-### Ajouts d'interface
-
-- `TrackUploadComponent` : état de chargement, bouton et champs désactivés pendant l'envoi, garde contre la double soumission, message de succès, erreur serveur, formulaire (y compris l'`<input type="file">`) vidé après succès, retour en page 1.
-- `TrackCardComponent` : cards responsives (`grid auto-fill`), titre, nom original, format (MP3/WAV/OGG/M4A), taille lisible (`FileSizePipe`), date (`DatePipe`, `<time datetime>`), boutons Lire et Supprimer avec `aria-label` nominatif, badge « En lecture ».
-- Lecteur : morceau en cours affiché, erreur du `<audio>` (`(error)`) et erreur HTTP (404) compréhensibles.
-
-### Réponses : mémoire, buffering et streaming
-
-- **Le backend charge-t-il le fichier en mémoire ?** Non. `multer.diskStorage()` écrit l'upload sur le disque ; `res.sendFile()` lit le fichier depuis le disque et l'envoie par morceaux (stream), avec gestion des requêtes `Range`.
-- **Quand le composant reçoit-il le fichier avec `responseType: 'blob'` ?** Quand la réponse est **entièrement** téléchargée : `HttpClient` émet le `Blob` une seule fois, à la fin. La lecture ne démarre donc qu'après le téléchargement complet.
-- **100 morceaux dans la bibliothèque = 100 fichiers en mémoire ?** Non. `GET /api/tracks` ne renvoie que des métadonnées (le backend exclut même `storedName`), 5 par page par défaut. Un `Blob` n'est téléchargé qu'au clic sur « Lire » (`play()`), et un seul à la fois : l'`ObjectURL` précédente est révoquée.
-- **Différence avec 100 `<audio src="http://...">` :** chaque élément déclencherait ses propres requêtes (au moins les métadonnées selon `preload`), en **streaming** avec buffering progressif et requêtes `Range` : lecture quasi immédiate, mémoire limitée au tampon. En contrepartie, ces requêtes ne portent pas le JWT (voir plus haut).
-- **Pourquoi révoquer l'ObjectURL ?** `URL.createObjectURL` garde une référence vers le `Blob` tant que le document existe. Sans `revokeObjectURL`, chaque lecture laisserait un fichier audio complet en mémoire (fuite mémoire).
-- **Distinction :** téléchargement complet d'un `Blob` (tout le fichier en mémoire côté client avant lecture) ≠ buffering du navigateur (le lecteur remplit un tampon et lit pendant le chargement) ≠ streaming côté serveur (le serveur envoie le fichier par morceaux sans le charger entièrement).
-
-### Améliorations facultatives
-
-- Réalisées : barre de progression (TP3), suppression avec confirmation et rafraîchissement (TP3), formatage de la taille et de la date.
-- Non réalisées : filtre par titre (le backend ne filtre pas ; filtrer seulement la page courante serait trompeur), image de couverture (nécessite une évolution des données et de l'API).
-
-## TP3 - Fiabilisation et enrichissement
-
-### Mission 5 - Suppression d'une piste
-
-- Flux : `TrackCardComponent (remove) → TracksPageComponent.remove() → TrackService.remove() → HttpClient → DELETE /api/tracks/:id`.
-- Confirmation `window.confirm` avant tout appel ; aucun appel HTTP si l'utilisateur annule.
-- `deletingId` : la card concernée affiche « Suppression… », toutes les actions de suppression sont désactivées, et la méthode ignore un second appel.
-- Retour dans une SnackBar Angular Material (`MatSnackBar`) : succès, `404`, autre erreur.
-- La page est rechargée après suppression. Si elle devient vide (dernière piste de la dernière page), on revient à la dernière page existante.
-- `404` : piste supprimée entre-temps (autre onglet) ou appartenant à un autre utilisateur. Le backend ne distingue volontairement pas les deux cas, pour ne pas révéler l'existence de la piste d'un autre. Message explicite, puis la liste est resynchronisée.
-- `401` : l'intercepteur déconnecte et redirige ; le composant n'affiche rien de plus.
-- Si la piste supprimée était en lecture, le lecteur est arrêté et son ObjectURL révoquée.
-
-**Pourquoi le guard et l'interface ne suffisent pas :** le guard ne fait que masquer des pages dans le navigateur de l'utilisateur. N'importe qui peut envoyer `DELETE /api/tracks/<id>` avec curl. C'est le backend qui vérifie la signature et l'expiration du JWT (middleware `auth`) puis le propriétaire (`findOneAndDelete({ _id, ownerId: req.auth.sub })`).
-
-### Mission 6 - Progression de l'upload
-
-- `TrackService.upload()` utilise `reportProgress: true` et `observe: 'events'`, puis traduit les `HttpEvent` en `UploadEvent` (`progress` avec un pourcentage, `done` avec la piste créée).
-- `withXhr()` ajouté dans `main.ts` : depuis Angular 21, `HttpClient` utilise `fetch`, qui ne remonte pas la progression d'upload.
-- États (`UploadState`, union discriminée) : `idle`, `uploading` avec `percent`, `success`, `error`. À 100 %, l'interface affiche « Traitement par le serveur… » en attendant la réponse `201`.
-- Pendant l'envoi : champ titre, sélecteur de fichier et bouton désactivés, garde contre la double soumission.
-
-**Calcul du pourcentage :** chaque événement `HttpEventType.UploadProgress` fournit `loaded` (octets envoyés) et `total` (taille du corps) ; `percent = Math.round(100 * loaded / total)`.
-
-**Différence avec une requête classique :** une requête normale émet une seule valeur (le corps de la réponse) puis se termine. Avec `observe: 'events'`, l'Observable émet une **suite** d'événements (`Sent`, plusieurs `UploadProgress`, `ResponseHeader`, `Response`) : il faut filtrer les types, mettre à jour l'état à chaque émission et ne considérer l'upload réussi qu'à l'événement `Response`.
-
-### Mission 7 - Tests automatisés
-
-Rapport de tests : résultats attendus et observés le 24/09/2026.
-
-| Fichier | Test | Attendu | Observé |
-|---|---|---|---|
-| `auth.service.spec.ts` | `login()` | `POST /api/auth/login`, corps `{email, password}` | ✅ |
-| | stockage | token dans `localStorage` + Signals `token`, `currentUser` | ✅ |
-| | échec 401 | aucun token stocké | ✅ |
-| | `logout()` | stockage et Signals remis à zéro | ✅ |
-| `track.service.spec.ts` | `list()` | `GET /api/tracks?page=2&limit=5` | ✅ |
-| | multipart | `POST`, `FormData` avec exactement `audio` et `title`, `reportProgress` | ✅ |
-| | progression | 25 %, 100 %, puis `done` avec la piste | ✅ |
-| | `audio()` | `GET .../audio`, `responseType: 'blob'` | ✅ |
-| | `remove()` | `DELETE /api/tracks/track-1`, `204` | ✅ |
-| `auth.interceptor.spec.ts` | token présent | `Authorization: Bearer test-token` | ✅ |
-| | sans token | aucun header | ✅ |
-| | 401 route protégée | logout + navigation `/login` | ✅ |
-| | 401 sur login | pas de redirection | ✅ |
-| `auth.guard.spec.ts` | sans token | `UrlTree` `/login` | ✅ |
-| | avec token | `true` | ✅ |
-| `file-size.pipe.spec.ts` | formatage | `512 o`, `1.5 Ko`, `5.0 Mo` | ✅ |
-| `track-card.spec.ts` | rendu | titre, fichier, format, taille | ✅ |
-| | actions | `play` et `remove` émis avec la piste | ✅ |
-| | suppression en cours | boutons désactivés, « Suppression… » | ✅ |
-| `track-upload.spec.ts` | MIME invalide / > 25 Mo | message, aucun appel HTTP | ✅ |
-| | progression | 42 % affiché, bouton et titre désactivés | ✅ |
-| | double soumission | un seul appel | ✅ |
-| | succès | état `success`, `uploaded` émis, formulaire vidé | ✅ |
-| | erreur | message serveur affiché, champs réactivés | ✅ |
-| `tracks-page.spec.ts` | chargement | `list(1, 5)`, une card par piste | ✅ |
-| | pagination | nouvelle requête par page, conversion `pageIndex` | ✅ |
-| | après upload | retour page 1 | ✅ |
-| | échec HTTP | message d'erreur **affiché dans le DOM** | ✅ |
-| | suppression | `DELETE` après confirmation, SnackBar, rechargement | ✅ |
-| | annulation / double clic / 404 / page vide | pas d'appel / un appel / message + rechargement / page précédente | ✅ |
-| | lecture | ObjectURL créée, affichée, révoquée à la destruction, erreur 404 | ✅ |
-
-Résultat : `npm test` → **8 fichiers, 38 tests réussis**, sans backend ni MongoDB.
-Contrôle de pertinence : en renommant volontairement le champ `title` en `titre` et en modifiant le message de succès, 2 tests échouent comme attendu, puis repassent après restauration.
-
-**Extension backend** (`backend/test/api.test.js`, sans modifier les routes) : `401` sans JWT, `401` avec un JWT invalide, `401` avec un JWT signé par un autre secret, `400` pour un upload sans fichier, `400` pour un type MIME refusé. Résultat `npm test` backend : **7 tests réussis**, sans MongoDB (les requêtes sont rejetées avant tout accès à la base). Pagination et accès à la piste d'un autre utilisateur : non couverts, car ils nécessitent une base (test d'intégration avec une base de test).
-
-### Build
-
-`npm run build` : succès (bundle initial ~643 kB brut / ~144 kB transféré, Angular Material inclus).
-
-### Réponses pour la restitution orale
-
-1. **Pourquoi la suppression passe par un service ?** Le composant ne gère que l'affichage et l'état. Le service concentre l'URL, la méthode et le typage, il est réutilisable et testable séparément avec `HttpTestingController`.
-2. **Comment le backend protège la suppression ?** Le middleware `auth` vérifie le JWT (signature et expiration) → `401` ; `findOneAndDelete({ _id, ownerId: req.auth.sub })` ne supprime que les pistes de l'utilisateur → `404` sinon ; le fichier disque est supprimé ensuite.
-3. **Comment Angular calcule le pourcentage ?** Grâce aux événements `UploadProgress` du backend XHR (`loaded / total`), activés par `reportProgress: true` + `observe: 'events'` + `withXhr()`.
-4. **Pourquoi les tests HTTP n'ont pas besoin de MongoDB ?** `provideHttpClientTesting()` remplace le backend HTTP d'Angular : les requêtes sont capturées par `HttpTestingController` et on leur fournit une réponse simulée (`flush`). Rien ne sort du navigateur.
-5. **Ce que vérifie un test d'intercepteur ou de guard :** intercepteur = la requête sortante porte (ou non) le header `Authorization`, et un `401` provoque la déconnexion et la redirection ; guard = sans token, la navigation est remplacée par un `UrlTree` vers `/login`.
-6. **Test unitaire et test d'intégration :** un test unitaire isole une unité (service, composant) et remplace ses dépendances par des doubles : il est rapide et déterministe. Un test d'intégration fait travailler plusieurs couches réelles ensemble (Angular + API + MongoDB, ou Express + base de test) et vérifie qu'elles s'assemblent correctement.
-
-## Session Claude Code du 24/09/2026 (TP2 + TP3)
-
-- **Assistant et modèle :** Claude Code (extension VS Code), modèle Claude Opus 5.5.
-- **Consommation de tokens :** commande `/cost` (ou `/usage`) dans Claude Code ; pour GitHub Copilot, tableau de bord d'utilisation du compte GitHub.
-- **Qui conseille le modèle adapté ?** La documentation de l'éditeur de l'assistant (pages de comparaison des modèles), les consignes de l'enseignant, et l'expérience : un modèle rapide pour des tâches simples, un modèle de raisonnement pour l'architecture ou le débogage.
-- **Skill installé :** `npx skills add https://github.com/angular/skills` → `.claude/skills/angular-developer` et `angular-new-app` (skills officiels de l'équipe Angular). Utilisé en particulier pour `withXhr()` (progression d'upload), le pattern de test zoneless `await fixture.whenStable()` et `input()` / `output()`.
-- **Doctrine rédigée :** [`DOCTRINE.md`](DOCTRINE.md), référencée depuis `CLAUDE.md` (racine), `frontend-starter/AGENTS.md`, `CLAUDE.md` et `GEMINI.md`.
-- **Dépendances ajoutées :** `@angular/material` et `@angular/cdk` `~22.1.0` (Paginator et SnackBar).
-- **Configuration :** `tsconfig.spec.json` créé ; les specs sont exclues de `tsconfig.app.json` (elles étaient compilées par `ng build`) ; thème Material `azure-blue` recoloré aux couleurs de l'application.
-- **Revue critique des propositions de l'IA :** le style global `button` écrasait les boutons Material (corrigé par `button:not([class*='mat-'])`). La garde `if (this.loading()) return;` de la première version bloquait un changement de page pendant un chargement : elle a été remplacée par une annulation de la requête précédente. Le bouton d'envoi restait désactivé après une erreur serveur, ce qui empêchait de réessayer : corrigé.
-- **Vérification de bout en bout non réalisée par l'assistant :** MongoDB Atlas était injoignable depuis la session (liste blanche IP d'Atlas). Le frontend compile et est servi (HTTP 200) ; les preuves Network restent à capturer manuellement.
-
-### Fichiers créés ou modifiés (TP2 + TP3)
-
-- `frontend-starter/src/main.ts` : `withXhr()`, `MatPaginatorIntl`.
-- `frontend-starter/src/app/shared/services/track.service.ts` : progression, `remove()`.
-- `frontend-starter/src/app/shared/models/upload-event.model.ts` : `UploadEvent`, `UploadState`.
-- `frontend-starter/src/app/shared/utils/audio-file.ts`, `http-error.ts` ; `pipes/file-size.pipe.ts` ; `i18n/paginator-intl.ts` ; `testing/local-storage.mock.ts`.
-- `frontend-starter/src/app/components/tracks-page/*` : orchestration, Paginator, lecture, suppression.
-- `frontend-starter/src/app/components/track-card/*`, `track-upload/*` : nouveaux composants.
-- Specs : `auth.service`, `auth.guard`, `auth.interceptor`, `track.service`, `file-size.pipe`, `track-card`, `track-upload`, `tracks-page`.
-- `frontend-starter/angular.json`, `tsconfig.app.json`, `tsconfig.spec.json`, `package.json`, `src/styles.css`.
-- `backend/test/api.test.js` : tests de contrat et de sécurité (aucune route modifiée).
-
-## Preuves à capturer manuellement (TP2 + TP3)
-
-À déposer dans `preuves/tp2/` et `preuves/tp3/`, en masquant toujours la ligne `Authorization`, les JWT et les mots de passe.
-
-1. **Pagination :** `GET /api/tracks?page=1&limit=5` puis `page=2` après un clic sur « Page suivante ».
-2. **Upload :** `POST /api/tracks`, onglet Payload : `multipart/form-data` avec les champs `audio` et `title`, statut `201`. Pour voir la progression, activer le throttling « Slow 4G » et capturer la barre en cours.
-3. **Lecture :** `GET /api/tracks/<id>/audio`, statut `200`, `Content-Type: audio/mpeg`, type `blob`/media.
-4. **Fichier invalide :** sélectionner un `.txt` : message « Format refusé », **aucune** requête dans Network. Pour un `400` serveur, renommer un `.txt` en `.mp3` ne suffit pas (le navigateur annonce `audio/mpeg`) : le `400` est prouvé par le test backend « type MIME refusé ».
-5. **Suppression :** `DELETE /api/tracks/<id>` → `204` après confirmation, puis le `GET /api/tracks` de rechargement ; supprimer la même piste depuis un second onglet → `404` et SnackBar.
-6. **Propriété :** avec un second compte, `GET /api/tracks/<id d'une piste du compte démo>/audio` → `404`.
-7. **Console :** aucune erreur inattendue, aucun token affiché.
-
-## Ce que le binôme doit savoir expliquer
-
-- Un Signal Angular contient l'état réactif utilisé immédiatement par les composants : quand `currentUser` ou `token` change, l'interface peut se mettre à jour. `localStorage` est une persistance navigateur séparée : il permet de retrouver le token après un rechargement, mais ne déclenche pas directement le rafraîchissement des composants. Ici, `AuthService` synchronise les deux.
-- Le rôle du proxy Angular et le fait qu'Angular ne contacte jamais MongoDB directement.
-- Le rôle de l'intercepteur pour ajouter `Authorization: Bearer <token>`.
-- Pourquoi les routes backend vérifient le JWT même si le guard Angular protège déjà l'interface.
-- Le trajet d'un upload multipart, sa progression, et le rôle de `Blob` et `ObjectURL` pour la lecture audio.
-- La séparation page (état + services) / composant de présentation (`input()` / `output()`).
-
-## État de validation
-
-- **TP1 :** code terminé ; capture `preuves/tp1/image-2.png` à refaire avec le JWT masqué.
-- **TP2 :** code terminé et testé ; preuves Network à capturer (points 1 à 4 ci-dessus).
-- **TP3 :** suppression, progression et tests terminés ; `npm run build` OK ; preuves Network à capturer (points 5 à 7).
-- Restaurer un `backend/.env.example` contenant uniquement des valeurs fictives avant le rendu.
-
-## Contexte pour la prochaine session
-
-- Appliquer [`DOCTRINE.md`](DOCTRINE.md).
-- Garde-fous : frontend `npm test` = 38 tests réussis, backend `npm test` = 7 tests réussis, `npm run build` OK.
-- Node v26.8.2 : `export PATH="/opt/homebrew/bin:$PATH"`.
-- Autoriser l'IP courante dans MongoDB Atlas (Network Access) si le backend refuse de démarrer.
+1. l'**objectif** ;
+2. le **prompt principal** ;
+3. le **plan proposé par l'agent** ;
+4. les **vérifications réalisées par le binôme** ;
+5. les **erreurs ou propositions rejetées** ;
+6. les **fichiers effectivement modifiés** ;
+7. la **preuve de fonctionnement** ;
+8. **ce que le membre sait maintenant expliquer sans l'agent**.
+
+Les prompts sont reformulés à partir de nos demandes. Les chemins de fichiers partent de `frontend-starter/src/app/`, sauf indication contraire.
+
+---
+
+# TP1 - Authentification et profil
+
+## Partie Meric VAILLANT - Préparation, connexion et inscription
+
+- **Objectif :** démarrer Atlas, le backend et Angular, comprendre le trajet d'une connexion, puis compléter les formulaires de connexion et d'inscription.
+- **Prompt principal :** « Lis le README, ATLAS_SETUP, API_CONTRACT et le sujet TP1. Analyse le projet sans rien modifier, explique le trajet d'une connexion, puis complète les formulaires. »
+- **Plan proposé par l'agent :** 1) lire la configuration et le proxy ; 2) tester `/api/health` ; 3) cartographier le flux de connexion ; 4) ajouter la validation et les états de chargement.
+- **Vérifications du binôme :** `GET /api/health` renvoie `{"status":"ok"}` ; le compte de démonstration est créé dans Atlas ; `npm run build` passe ; un mot de passe trop court bloque l'envoi.
+- **Erreurs ou propositions rejetées :**
+  - l'URI MongoDB pointait sur une mauvaise base. Nous l'avons corrigée à la main dans `backend/.env`, sans la donner à l'IA ;
+  - Angular CLI 22 refusait la version de Node. Node a été mis à jour en v26.8.2 avec Homebrew.
+- **Fichiers modifiés :** `components/login-page/*`, `components/register-page/*`, `backend/.env` (local, non versionné).
+- **Preuve :** [connexion réussie](preuves/tp1/image.png) (`POST /api/auth/login`, `200`), [connexion refusée](preuves/tp1/image-1.png) (`401`) et le [schéma du flux](SCHEMA_FLUX_TP1.md).
+
+![Connexion réussie : POST /api/auth/login, 200](preuves/tp1/image.png)
+![Connexion refusée : POST /api/auth/login, 401](preuves/tp1/image-1.png)
+- **Meric sait expliquer :** le trajet `LoginPageComponent → AuthService → HttpClient → proxy → Express → MongoDB`. Le rôle du proxy, et le fait qu'Angular ne contacte jamais MongoDB directement.
+
+## Partie Noa PISTONE - Déconnexion, 401 et profil
+
+- **Objectif :** gérer la déconnexion, le token expiré, puis la lecture et la modification du profil.
+- **Prompt principal :** « Ajoute la déconnexion, la gestion du 401 et la page profil. Passe par AuthService et utilise des Signals. Ne modifie pas le backend. »
+- **Plan proposé par l'agent :** 1) ajouter `logout()` qui vide le stockage et les Signals ; 2) intercepter le `401` ; 3) charger `/api/users/me` à l'ouverture du profil ; 4) gérer la sauvegarde et ses erreurs.
+- **Vérifications du binôme :** après la déconnexion, `localStorage` est vide ; avec un token modifié à la main, l'application revient sur `/login` ; un nom modifié reste en place après rechargement.
+- **Erreurs ou propositions rejetées :** l'agent proposait un appel `HttpClient` direct dans le composant profil. Refusé, car le sujet impose de passer par `AuthService`.
+- **Fichiers modifiés :** `components/app/app.ts` et `app.html`, `components/profile-page/*`, `shared/interceptors/auth.interceptor.ts`.
+- **Preuve :** [modification du profil](preuves/tp1/image-2.png) : `PUT /api/users/me`, `200`.
+
+![Modification du profil : PUT /api/users/me, 200](preuves/tp1/image-2.png)
+
+- **Noa sait expliquer :**
+  - les routes utilisées : `POST /api/auth/login`, `POST /api/auth/register`, `GET /api/users/me` et `PUT /api/users/me` ;
+  - où se fait la mise à jour du profil : `ProfilePageComponent` puis `AuthService` côté front, la route `PUT /api/users/me` de `backend/src/app.js` côté back ;
+  - Signal ou `localStorage` : le Signal porte l'état réactif qui met l'interface à jour, `localStorage` garde seulement le token après un rechargement, et `AuthService` synchronise les deux.
+
+---
+
+# TP2 - Bibliothèque, upload et lecture audio
+
+## Partie Meric VAILLANT - Pagination et cards (mission 2)
+
+- **Objectif :** afficher une bibliothèque paginée côté serveur, sous forme de cards lisibles.
+- **Prompt principal :** « Fais transmettre page et limit à TrackService.list(). Ajoute le Paginator Angular Material et découpe la page en composants de présentation. »
+- **Plan proposé par l'agent :** 1) `HttpParams` dans `list()` ; 2) Signals d'état dans la page ; 3) `mat-paginator` avec libellés en français ; 4) un composant `TrackCard` piloté par `input()` / `output()`.
+- **Vérifications du binôme :** chaque clic sur une page envoie une nouvelle requête ; les boutons sont désactivés à la première et à la dernière page ; le choix de 10 par page change bien `limit`.
+- **Erreurs ou propositions rejetées :**
+  - la garde `if (this.loading()) return;` bloquait le changement de page pendant un chargement. Elle a été remplacée par l'annulation de la requête précédente ;
+  - la pagination Mongoose côté serveur n'a pas été faite : elle modifierait le backend et le contrat d'API ;
+  - le filtre par titre a été écarté : filtrer seulement la page courante serait trompeur.
+- **Fichiers modifiés :** `shared/services/track.service.ts`, `components/tracks-page/*`, `components/track-card/*`, `shared/pipes/file-size.pipe.ts`, `shared/i18n/paginator-intl.ts`, `main.ts`.
+- **Preuve :** [page 1](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.11.36.png), [page 2](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.14.21.png) et [10 par page](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.15.01.png) : `GET /api/tracks?page=…&limit=…`, `200`.
+
+![Pagination, page 1 : GET /api/tracks?page=1&limit=5](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.11.36.png)
+![Pagination, page 2 : GET /api/tracks?page=2&limit=5](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.14.21.png)
+![Pagination, 10 pistes par page : limit=10](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.15.01.png)
+
+- **Meric sait expliquer :** la conversion de `pageIndex` (qui commence à 0) en `page` (qui commence à 1) ; pourquoi la dernière page demandée doit gagner ; la séparation entre la page (état et services) et la card (affichage seulement).
+
+## Partie Noa PISTONE - Upload et lecture audio (mission 3)
+
+- **Objectif :** envoyer un fichier audio en `multipart` et le lire de façon authentifiée.
+- **Prompt principal :** « Trace le flux d'upload et de lecture fichier par fichier. Explique pourquoi on utilise Blob et ObjectURL. »
+- **Plan proposé par l'agent :** 1) valider le fichier localement ; 2) construire le `FormData` avec `audio` et `title` ; 3) récupérer le fichier en `blob` ; 4) créer puis révoquer l'ObjectURL.
+- **Vérifications du binôme :** un `.txt` ou un fichier de plus de 25 Mo est refusé sans requête ; la lecture fonctionne ; dans l'onglet Network, la requête audio porte bien `Authorization`.
+- **Erreurs ou propositions rejetées :** l'agent proposait de mettre l'URL de l'API directement dans `<audio src>`. Rejeté, car le backend répond `401` sans JWT. L'image de couverture n'a pas été faite : il faudrait faire évoluer les données et l'API.
+- **Fichiers modifiés :** `components/track-upload/*`, `shared/utils/audio-file.ts`, `shared/utils/http-error.ts`, `track.service.ts` (`upload()` et `audio()`), `tracks-page.ts` (`play()` et `releaseAudio()`).
+- **Preuve :** [lecture authentifiée](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.52.50.png) (`GET .../audio`, `200`, `audio/mpeg`) et [fichier trop lourd refusé](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.44.15.png).
+
+![Lecture authentifiée : GET /api/tracks/:id/audio, 200, audio/mpeg](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.52.50.png)
+![Fichier de plus de 25 Mo refusé sans requête](preuves/tp2/Capture%20d’écran%202026-09-24%20à%2009.44.15.png)
+
+- **Noa sait expliquer :**
+  - le flux complet : `TrackUpload → TrackService → intercepteur → POST /api/tracks → Multer (disque) → MongoDB (métadonnées)` ;
+  - pourquoi `<audio src>` ne porte pas le JWT : le navigateur télécharge le fichier sans passer par Angular ;
+  - pourquoi révoquer l'ObjectURL : sinon le fichier complet reste en mémoire ;
+  - pourquoi la validation frontend ne suffit pas : l'API peut être appelée sans Angular ;
+  - la différence entre un Blob complet, le buffering du navigateur et le streaming du serveur (`sendFile`).
+
+---
+
+# TP3 - Fiabilisation et enrichissement
+
+## Partie Meric VAILLANT - Suppression et progression (missions 5 et 6)
+
+- **Objectif :** supprimer une piste de façon sûre et afficher la progression réelle d'un upload.
+- **Prompt principal :** « Ajoute la suppression via TrackService.remove() avec confirmation, puis la progression de l'upload avec reportProgress. »
+- **Plan proposé par l'agent :** 1) `remove()` dans le service ; 2) confirmation, Signal `deletingId`, SnackBar et rechargement ; 3) `reportProgress` avec `observe: 'events'` ; 4) des états d'envoi `idle`, `uploading`, `success` et `error`.
+- **Vérifications du binôme :**
+  - annuler la confirmation n'envoie aucune requête ;
+  - supprimer la dernière piste d'une page ramène à la page précédente ;
+  - supprimer depuis un second onglet affiche un message de `404` ;
+  - en mode « Slow 4G », la barre de progression avance.
+- **Erreurs ou propositions rejetées :**
+  - la barre restait bloquée à 0 %, car `HttpClient` utilise `fetch` depuis Angular 21 et `fetch` ne remonte pas la progression. Corrigé avec `withXhr()` dans `main.ts` ;
+  - le bouton d'envoi restait désactivé après une erreur serveur. Corrigé pour permettre de réessayer.
+- **Fichiers modifiés :** `track.service.ts`, `shared/models/upload-event.model.ts`, `tracks-page/*`, `track-card/*`, `track-upload/*`, `main.ts`.
+- **Preuve :**
+  - [suppression](preuves/tp3/suppression.png) : `DELETE`, `204` ;
+  - [suppression depuis un second onglet](preuves/tp3/uppression-404.png) : `404` ;
+  - [progression à 16 %](preuves/tp3/Capture%20d’écran%202026-09-24%20à%2009.41.21.png) ;
+  - [`POST` en `201`](preuves/tp3/Capture%20d’écran%202026-09-24%20à%2009.47.44.png) et [contenu `multipart`](preuves/tp3/Capture%20d’écran%202026-09-24%20à%2009.48.49.png).
+
+![Suppression : DELETE /api/tracks/:id, 204](preuves/tp3/suppression.png)
+![Suppression depuis un second onglet : 404 et message](preuves/tp3/uppression-404.png)
+![Barre de progression de l'upload à 16 %](preuves/tp3/Capture%20d’écran%202026-09-24%20à%2009.41.21.png)
+![Upload : POST /api/tracks, 201 Created](preuves/tp3/Capture%20d’écran%202026-09-24%20à%2009.47.44.png)
+![Contenu de l'upload : multipart, champs audio et title](preuves/tp3/Capture%20d’écran%202026-09-24%20à%2009.48.49.png)
+
+- **Meric sait expliquer :**
+  - pourquoi le guard ne protège rien côté serveur : le backend vérifie le JWT, puis le propriétaire avec `findOneAndDelete({ _id, ownerId })` ;
+  - pourquoi le `404` ne distingue pas une piste absente d'une piste qui appartient à un autre utilisateur ;
+  - le calcul `Math.round(100 * loaded / total)` ;
+  - la différence entre une requête classique, qui émet une seule valeur, et `observe: 'events'`, qui émet une suite d'événements.
+
+## Partie Noa PISTONE - Tests automatisés et revue (mission 7)
+
+- **Objectif :** tester les services, l'intercepteur, le guard et les composants, sans backend ni MongoDB.
+- **Prompt principal :** « Écris des tests Vitest avec HttpTestingController. Vérifie les URL, les méthodes, les paramètres, les headers et les erreurs. »
+- **Plan proposé par l'agent :** 1) tests des services avec `provideHttpClientTesting` ; 2) tests de l'intercepteur et du guard ; 3) tests des composants en mode zoneless (`await fixture.whenStable()`) ; 4) tests de sécurité du backend.
+- **Vérifications du binôme :** nous avons renommé volontairement `title` en `titre`. Deux tests ont échoué comme prévu, puis sont repassés après correction.
+- **Résultats attendus et observés** (le 24/09/2026, tous conformes) :
+
+| Cible | Ce qui est vérifié |
+|---|---|
+| `AuthService`, `TrackService` | URL, corps, `?page=2&limit=5`, `FormData` avec `audio` et `title`, progression 25 % puis 100 %, `blob`, `DELETE` |
+| `authInterceptor`, `authGuard` | `Bearer` présent ou absent, un `401` déconnecte sauf sur le login, redirection vers `/login` sans token |
+| `TrackCard`, `TrackUpload`, `FileSizePipe` | affichage, fichier refusé sans requête, 42 % affiché, un seul appel en cas de double clic, erreur affichée |
+| `TracksPage` | pagination, erreur affichée dans la page, suppression (confirmation, `404`, page vide), ObjectURL révoquée |
+
+- **Erreurs ou propositions rejetées :**
+  - le style global `button` écrasait les boutons Material. Il est maintenant limité avec `button:not([class*='mat-'])` ;
+  - les fichiers de test étaient compilés par `ng build`. Ils sont maintenant exclus du build ;
+  - un test de propriété d'une piste avec une vraie base a été écarté : cela relève d'un test d'intégration.
+- **Fichiers modifiés :** 8 fichiers `*.spec.ts`, `shared/testing/local-storage.mock.ts`, `tsconfig.spec.json`, `tsconfig.app.json`, `package.json` (Angular Material `~22.1.0`), `backend/test/api.test.js`.
+- **Preuve :** frontend `npm test` : **38 tests réussis** ; backend `npm test` : **7 tests réussis** (`401` sans JWT, JWT invalide ou signé par un autre secret ; `400` pour un upload sans fichier ou un type refusé) ; `npm run build` : réussi.
+- **Noa sait expliquer :**
+  - pourquoi les tests HTTP n'ont pas besoin de MongoDB : `HttpTestingController` capture les requêtes et renvoie des réponses simulées ;
+  - ce que vérifient le test de l'intercepteur et celui du guard ;
+  - la différence entre un test unitaire, qui isole une unité, et un test d'intégration, qui fait travailler Angular, l'API et une vraie base ensemble.
+
+---
+
+## État au rendu
+
+- TP1, TP2 et TP3 : code terminé, tests et build réussis.
+- **Limite de l'IA :** Atlas était injoignable depuis la session de l'assistant (adresse IP non autorisée). Les essais de bout en bout et les captures ont été faits à la main.
