@@ -22,7 +22,12 @@ Festival, joué sur ses propres morceaux.
 Le détail de chaque mission, les preuves Network et l'usage de l'IA sont dans
 [RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md).
 
-### Guithar Hero (extension)
+### Guithar Hero (projet suivant, hors TP1 à TP3)
+
+> **À noter :** cette partie ne fait pas partie des TP1 à TP3. Elle prépare le projet
+> suivant. Les pages concernées (`game`, `leaderboard`, `shop`, `groups`, `live`), leurs
+> services et les routes backend ajoutées (scores, boutique, amis, groupes, parties en
+> direct) ne sont donc pas à évaluer avec les TP.
 
 - **Jeu :** jusqu'à 5 couloirs, notes longues, étoiles, difficulté réglable. Les partitions sont générées depuis le morceau, par instrument (lead, basse, batterie, chant).
 - **Progression :** scores en ligne, classement général, points, avatars et boutique (fonds de scène animés en WebGL).
