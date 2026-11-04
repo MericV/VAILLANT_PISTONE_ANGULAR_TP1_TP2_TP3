@@ -6,7 +6,12 @@ import { RegisterPageComponent } from './components/register-page/register-page'
 import { TracksPageComponent } from './components/tracks-page/tracks-page';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'tracks' },
+  { path: '', pathMatch: 'full', redirectTo: 'home' },
+  {
+    path: 'home',
+    loadComponent: () => import('./components/home-page/home-page').then((m) => m.HomePageComponent),
+    canActivate: [authGuard],
+  },
   { path: 'login', component: LoginPageComponent },
   { path: 'register', component: RegisterPageComponent },
   { path: 'profile', component: ProfilePageComponent, canActivate: [authGuard] },
@@ -37,5 +42,5 @@ export const routes: Routes = [
     loadComponent: () => import('./components/live-page/live-page').then((m) => m.LivePageComponent),
     canActivate: [authGuard],
   },
-  { path: '**', redirectTo: 'tracks' },
+  { path: '**', redirectTo: 'home' },
 ];

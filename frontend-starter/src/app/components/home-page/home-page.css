@@ -1,0 +1,40 @@
+:host { display: block; }
+
+/* Le rendu Blender reste fixe derrière toute la page ; un voile assure la lisibilité du texte. */
+.stage { position: fixed; inset: 0; z-index: -2; width: 100vw; height: 100vh; background: #000; }
+:host::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgb(0 0 0 / 0.7), rgb(0 0 0 / 0.15) 60%, transparent);
+  pointer-events: none;
+}
+
+/* Chaque section occupe un écran : la page est assez longue pour dérouler les 150 images. */
+section { min-height: 100vh; display: grid; align-content: center; gap: 1rem; max-width: 34rem; }
+.hero { min-height: calc(100vh - 8rem); max-width: none; }
+.kicker { margin: 0; color: var(--link); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
+h1 { font-size: clamp(2.6rem, 8vw, 6rem); text-shadow: 0 4px 30px rgb(0 0 0 / 0.6); }
+h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); }
+.tagline { margin: 0; font-size: 1.25rem; color: var(--fg); }
+.hint { margin-top: 3rem; color: var(--muted); animation: bob 1.8s var(--ease) infinite alternate; }
+.panel p { margin: 0; font-size: 1.1rem; }
+.right { margin-left: auto; }
+
+.cta {
+  justify-self: start;
+  padding: 0.7rem 1.3rem;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--cta);
+  border-radius: var(--radius-small);
+  transition: transform var(--fast) var(--ease), filter var(--fast) var(--ease);
+}
+.cta:hover { filter: brightness(1.12); }
+.cta:active { transform: scale(0.97); }
+
+@keyframes bob { to { transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .hint { animation: none; } }
+@media (max-width: 640px) { .right { margin-left: 0; } }
