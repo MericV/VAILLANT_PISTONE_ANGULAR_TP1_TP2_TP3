@@ -89,3 +89,6 @@ button.equip:not([class*='mat-']) { color: var(--fg); background: rgb(180 140 25
 /* Survol : la carte se soulève et s'éclaire de sa rareté (transform seul : fluide). */
 .item { transition: transform var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
 .item:hover { transform: translateY(-4px); box-shadow: 0 12px 28px -10px var(--rarity); }
+
+/* Survol ou focus de la carte : l'avatar 3D tourne sur lui-même. */
+.item:hover, .item:focus-within { --spin: running; }

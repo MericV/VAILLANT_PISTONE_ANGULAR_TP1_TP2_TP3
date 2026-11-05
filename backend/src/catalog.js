@@ -3,17 +3,22 @@
  * c'est lui qui fixe les prix. Les réponses de l'API contiennent l'article résolu
  * (emoji, couleurs), le frontend n'a donc pas de seconde copie de ces listes à maintenir.
  */
+/**
+ * Avatars : objets de musicien rendus en 3D dans Blender (blender/avatars.blend). Le frontend
+ * affiche `public/avatars/<id>.webp`, une bande de 24 vues qui tourne au survol. Les
+ * identifiants historiques (rocker, dragon…) sont conservés : les achats restent valables.
+ */
 export const AVATARS = [
-  { id: "rocker", name: "Rockeur", emoji: "🎸", color: "#8f5bff", price: 0 },
-  { id: "drummer", name: "Batteuse", emoji: "🥁", color: "#ff4f7b", price: 150 },
-  { id: "singer", name: "Chanteur", emoji: "🎤", color: "#4dc3ff", price: 250 },
-  { id: "keys", name: "Claviériste", emoji: "🎹", color: "#4dffa6", price: 400 },
-  { id: "fox", name: "Renard", emoji: "🦊", color: "#ff9a3d", price: 600 },
-  { id: "alien", name: "Alien", emoji: "👽", color: "#7dff6a", price: 800 },
-  { id: "robot", name: "Robot", emoji: "🤖", color: "#9bb7e8", price: 1000 },
-  { id: "dragon", name: "Dragon", emoji: "🐉", color: "#ff3b2f", price: 1500 },
-  { id: "unicorn", name: "Licorne", emoji: "🦄", color: "#ff7ad9", price: 2000 },
-  { id: "skull", name: "Métal", emoji: "💀", color: "#ffd34d", price: 3000 },
+  { id: "rocker", name: "Médiator", emoji: "🎸", color: "#8f5bff", price: 0 },
+  { id: "drummer", name: "Baguettes", emoji: "🥁", color: "#ff4f7b", price: 150 },
+  { id: "singer", name: "Micro vintage", emoji: "🎤", color: "#4dc3ff", price: 250 },
+  { id: "keys", name: "Synthé", emoji: "🎹", color: "#4dffa6", price: 400 },
+  { id: "fox", name: "Casque studio", emoji: "🎧", color: "#ff9a3d", price: 600 },
+  { id: "alien", name: "Pédale fuzz", emoji: "🎛️", color: "#7dff6a", price: 800 },
+  { id: "robot", name: "Ampli", emoji: "🔊", color: "#9bb7e8", price: 1000 },
+  { id: "dragon", name: "Strat noire", emoji: "🎸", color: "#ff3b2f", price: 1500 },
+  { id: "unicorn", name: "Flying V", emoji: "⚡", color: "#ff7ad9", price: 2000 },
+  { id: "skull", name: "Les Paul dorée", emoji: "👑", color: "#ffd34d", price: 3000 },
 ];
 
 export const STARTER_AVATAR = "rocker";

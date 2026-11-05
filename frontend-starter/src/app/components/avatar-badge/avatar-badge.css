@@ -1,12 +1,25 @@
 :host { display: inline-flex; }
+/*
+ * Rendu Blender : une bande de 24 vues (une tous les 15°) posée sur un halo de la couleur de l'avatar.
+ * Au survol de la pastille, ou de tout parent qui passe --spin à running (carte de la boutique),
+ * steps() fait défiler les vues : l'objet tourne sur lui-même.
+ */
 .badge {
-  display: grid;
-  place-items: center;
   width: calc(var(--size) * 1px);
   height: calc(var(--size) * 1px);
-  font-size: calc(var(--size) * 0.55px);
-  line-height: 1;
-  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--avatar) 55%, #ffffff), var(--avatar));
+  background-color: color-mix(in srgb, var(--avatar) 22%, var(--surface-alt, #27273b));
+  background-repeat: no-repeat;
+  background-size: 2400% 100%;
   border-radius: 50%;
-  box-shadow: 0 0 calc(var(--size) * 0.3px) color-mix(in srgb, var(--avatar) 60%, transparent);
+  box-shadow: inset 0 0 calc(var(--size) * 0.25px) color-mix(in srgb, var(--avatar) 55%, transparent),
+    0 0 calc(var(--size) * 0.3px) color-mix(in srgb, var(--avatar) 45%, transparent);
+  animation: spin 1.6s steps(24, jump-none) infinite;
+  animation-play-state: var(--spin, paused);
 }
+:host(:hover) { --spin: running; }
+
+@keyframes spin {
+  from { background-position: 0% 0; }
+  to { background-position: 100% 0; }
+}
+@media (prefers-reduced-motion: reduce) { .badge { animation: none; } }

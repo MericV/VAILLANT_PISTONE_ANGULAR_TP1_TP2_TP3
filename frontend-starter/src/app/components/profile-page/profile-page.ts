@@ -2,9 +2,10 @@ import { Component, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../shared/services/auth.service';
+import { GuitarViewerComponent } from '../guitar-viewer/guitar-viewer';
 
 @Component({
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [DatePipe, ReactiveFormsModule, GuitarViewerComponent],
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.css',
 })
