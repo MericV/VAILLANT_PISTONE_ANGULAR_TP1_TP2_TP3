@@ -1,15 +1,16 @@
-import { afterNextRender, Component, DestroyRef, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, DestroyRef, ElementRef, inject, input, signal, viewChild } from '@angular/core';
 
 /**
- * Strat en 3D (exportée de Blender en glTF), à faire tourner à la souris ou au doigt.
- * three.js est importé dynamiquement : il n'est téléchargé qu'à l'ouverture du profil.
+ * Avatar équipé en 3D (exporté de Blender en glTF : public/models/<id>.glb, debout et centré),
+ * à faire tourner à la souris ou au doigt. three.js n'est téléchargé qu'à l'ouverture du profil.
+ * L'avatar est lu au premier rendu : le parent recrée le composant quand il change.
  */
 @Component({
-  selector: 'app-guitar-viewer',
+  selector: 'app-avatar-viewer',
   template: `
-    <canvas #canvas aria-label="Guitare en 3D : faites-la tourner en la faisant glisser" role="img"></canvas>
+    <canvas #canvas [attr.aria-label]="name() + ' en 3D : faites-le tourner en le faisant glisser'" role="img"></canvas>
     @if (state() !== 'ready') {
-      <p class="status">{{ state() === 'error' ? 'Impossible d’afficher la guitare 3D.' : 'Chargement de la guitare…' }}</p>
+      <p class="status">{{ state() === 'error' ? 'Impossible d’afficher l’avatar en 3D.' : 'Chargement de l’avatar…' }}</p>
     }
   `,
   styles: `
@@ -19,7 +20,10 @@ import { afterNextRender, Component, DestroyRef, ElementRef, inject, signal, vie
     .status { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted); }
   `,
 })
-export class GuitarViewerComponent {
+export class AvatarViewerComponent {
+  /** Identifiant de l'avatar (nom du fichier .glb) et nom lisible. */
+  readonly avatarId = input.required<string>();
+  readonly name = input('Avatar');
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   readonly state = signal<'loading' | 'ready' | 'error'>('loading');
 
@@ -51,18 +55,19 @@ export class GuitarViewerComponent {
         const pmrem = new THREE.PMREMGenerator(renderer);
         scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-        const gltf = await new GLTFLoader().loadAsync('models/strat.glb');
+        const gltf = await new GLTFLoader().loadAsync(`models/${this.avatarId()}.glb`);
         if (disposed) return renderer.dispose();
-        const guitar = gltf.scene;
-        // Couchée à plat dans Blender : on la redresse, manche vers le haut, face à la caméra.
-        guitar.rotation.x = Math.PI / 2;
-        const box = new THREE.Box3().setFromObject(guitar);
-        guitar.position.sub(box.getCenter(new THREE.Vector3()));
-        scene.add(guitar);
+        const model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        model.position.sub(box.getCenter(new THREE.Vector3()));
+        scene.add(model);
 
-        const height = box.getSize(new THREE.Vector3()).y;
+        // Recul calé sur la hauteur et sur la largeur (le cadre est en 3:4, et l'objet tourne sur lui-même) :
+        // une guitare haute comme un synthé large tiennent dans le cadre.
+        const size = box.getSize(new THREE.Vector3());
+        const height = Math.max(size.y, Math.hypot(size.x, size.z));
         const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 20);
-        camera.position.set(0, 0, height * 2);
+        camera.position.set(0, height * 0.35, height * 2.5);
 
         const controls = new OrbitControls(camera, canvas);
         controls.enableDamping = true;

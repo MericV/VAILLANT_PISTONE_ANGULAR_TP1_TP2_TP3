@@ -37,7 +37,7 @@ export class LoginPageComponent {
     this.auth.login(values.email, values.password).subscribe({
       next: () => {
         this.loading.set(false);
-        void this.router.navigateByUrl('/home');
+        void this.router.navigateByUrl('/lobby');
       },
       error: (error: { error?: { message?: string } }) => {
         this.loading.set(false);

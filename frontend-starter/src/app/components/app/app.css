@@ -15,6 +15,11 @@ nav a.me { display: flex; align-items: center; gap: 0.4rem; margin-left: 0.5rem;
 @media (max-width: 640px) {
   .topbar { flex-wrap: wrap; }
   .brand small { display: none; }
+  nav { flex-wrap: wrap; }
 }
 
 nav a { transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+
+/* « Jouer » : l'entrée du lobby, mise en avant comme le bouton de Fortnite. */
+nav a.play { color: #1a1300; background: var(--gold, #ffc93c); font-weight: 800; }
+nav a.play:hover, nav a.play.active { color: #1a1300; background: #ffd75e; box-shadow: none; border-radius: var(--radius-small); }

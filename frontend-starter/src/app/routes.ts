@@ -1,17 +1,20 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './shared/guards/auth.guard';
+import { lobbyGuard } from './shared/guards/lobby.guard';
 import { LoginPageComponent } from './components/login-page/login-page';
 import { ProfilePageComponent } from './components/profile-page/profile-page';
 import { RegisterPageComponent } from './components/register-page/register-page';
 import { TracksPageComponent } from './components/tracks-page/tracks-page';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'home' },
+  { path: '', pathMatch: 'full', redirectTo: 'lobby' },
   {
     path: 'home',
     loadComponent: () => import('./components/home-page/home-page').then((m) => m.HomePageComponent),
     canActivate: [authGuard],
   },
+  // Lobby façon Fortnite : redirige vers le salon de son groupe (créé si besoin).
+  { path: 'lobby', canActivate: [authGuard, lobbyGuard], children: [] },
   { path: 'login', component: LoginPageComponent },
   { path: 'register', component: RegisterPageComponent },
   { path: 'profile', component: ProfilePageComponent, canActivate: [authGuard] },

@@ -44,10 +44,10 @@
                   }
                   @if (item.background; as bg) {
                     <!-- Aperçu : le même décor que derrière la piste, avec une mini-piste pour juger le contraste. -->
-                    <div class="preview stage-backdrop" [style.--stage]="bg.stage" [style.--stage-deep]="bg.deep" [style.--spot-a]="bg.spotA" [style.--spot-b]="bg.spotB" aria-hidden="true">
-                      <!-- Aperçu animé : le vrai shader, qui pulse comme sur une musique (≈ 120 bpm). -->
-                      @if (bg.shader; as shader) {
-                        <app-stage-shader [shader]="shader" [combo]="0.6" />
+                    <div class="preview stage-backdrop" [style.--stage]="bg.stage" [style.--stage-deep]="bg.deep" [style.--spot-a]="bg.spotA" [style.--spot-b]="bg.spotB" [style.--stage-image]="bg.image ? 'url(' + bg.image + ')' : null" aria-hidden="true">
+                      <!-- Aperçu animé : les lumières du décor battent comme sur une musique (≈ 120 bpm). -->
+                      @if (bg.image; as image) {
+                        <app-stage-lights [image]="image" />
                       }
                       <span class="mini-road"></span>
                     </div>

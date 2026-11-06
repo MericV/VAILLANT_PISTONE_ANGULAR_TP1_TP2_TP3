@@ -34,6 +34,7 @@ describe('LivePageComponent', () => {
       chooseTrack: vi.fn(() => of(undefined)),
       start: vi.fn(() => of(undefined)),
       reset: vi.fn(() => of(undefined)),
+      list: vi.fn(() => of([{ id: 'g1', name: 'Les Riffs', code: 'ABC123', isOwner: true, members: [] }])),
     };
     TestBed.configureTestingModule({
       imports: [LivePageComponent],
@@ -50,14 +51,25 @@ describe('LivePageComponent', () => {
     await fixture.whenStable();
   });
 
-  it('affiche les joueurs du flux et le rôle d’hôte', async () => {
+  it('pose les joueurs sur scène, moi au centre, et propose d’inviter sur les places libres', async () => {
     stream.next(state());
     await fixture.whenStable();
 
     expect(service['live']).toHaveBeenCalledWith('g1');
-    expect(host().querySelectorAll('.players li')).toHaveLength(2);
+    const slots = [...host().querySelectorAll('.lineup .slot')];
+    expect(slots).toHaveLength(4);
+    expect(slots[1].classList).toContain('me'); // deuxième place : le centre de la scène
+    expect(host().querySelectorAll('.slot.empty button.invite')).toHaveLength(2);
     expect(component.isHost()).toBe(true);
     expect(host().textContent).toContain('Hôte');
+    expect(host().textContent).toContain('ABC123');
+  });
+
+  it('copie le code du groupe pour inviter un ami', async () => {
+    stream.next(state());
+    await fixture.whenStable();
+    (host().querySelector('.slot.empty button.invite') as HTMLButtonElement).click();
+    expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalledWith(expect.stringContaining('ABC123'), 'Fermer', expect.anything());
   });
 
   it('envoie mes réglages en gardant les autres valeurs', async () => {
@@ -68,15 +80,19 @@ describe('LivePageComponent', () => {
     expect(service['setPlayer']).toHaveBeenCalledWith('g1', { instrument: 'drums', difficulty: 'medium', ready: false });
   });
 
-  it('n’active « Lancer » que lorsque le serveur l’autorise', async () => {
+  it('le gros bouton déclare prêt, puis lance la partie quand le serveur l’autorise', async () => {
     stream.next(state());
     await fixture.whenStable();
-    const launch = () => [...host().querySelectorAll('button')].find((b) => b.textContent?.includes('Lancer'))!;
-    expect(launch().disabled).toBe(true);
+    const play = () => host().querySelector('button.play-btn') as HTMLButtonElement;
+    expect(play().textContent?.trim()).toBe('Prêt');
+    play().click();
+    expect(service['setPlayer']).toHaveBeenCalledWith('g1', { instrument: 'lead', difficulty: 'medium', ready: true });
+    expect(service['start']).not.toHaveBeenCalled();
 
-    stream.next(state({ canStart: true, track: { id: 't1', title: 'Blues' } }));
+    stream.next(state({ players: [player('me', { ready: true }), player('bob', { ready: true })], canStart: true, track: { id: 't1', title: 'Blues' } }));
     await fixture.whenStable();
-    launch().click();
+    expect(play().textContent?.trim()).toBe('Jouer');
+    play().click();
     expect(service['start']).toHaveBeenCalledWith('g1');
   });
 

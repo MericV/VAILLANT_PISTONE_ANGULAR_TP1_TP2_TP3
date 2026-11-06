@@ -12,7 +12,7 @@ import { AvatarBadgeComponent } from '../avatar-badge/avatar-badge';
 })
 export class AppComponent {
   readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
+  protected readonly router = inject(Router);
 
   constructor() {
     // Après un rechargement de page, seul le jeton est conservé : on relit le profil

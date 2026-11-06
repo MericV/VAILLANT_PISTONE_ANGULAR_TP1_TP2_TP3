@@ -5,9 +5,10 @@
   [style.--stage-deep]="backdrop()?.deep"
   [style.--spot-a]="backdrop()?.spotA"
   [style.--spot-b]="backdrop()?.spotB"
+  [style.--stage-image]="backdrop()?.image ? 'url(' + backdrop()?.image + ')' : null"
 >
-  @if (backdrop()?.shader; as shader) {
-    <app-stage-shader [shader]="shader" [analyser]="analyser()" [combo]="comboHeat()" [judgement]="feedback()" />
+  @if (backdrop()?.image; as image) {
+    <app-stage-lights [image]="image" [analyser]="analyser()" />
   }
   <header class="game-head">
     <a routerLink="/tracks">Retour à la bibliothèque</a>

@@ -14,7 +14,7 @@ import { Background, User } from '../../shared/models/user.model';
 import { GameNote } from '../../shared/utils/beatmap';
 
 const RATE = 44100;
-const lava: Background = { id: 'lava', name: 'Coulée de lave', shader: 'lasers', stage: '#5c1408', deep: '#190402', spotA: '#ff3b2f', spotB: '#ff9a3d', price: 800 };
+const lava: Background = { id: 'lava', name: 'Coulée de lave', image: null, stage: '#5c1408', deep: '#190402', spotA: '#ff3b2f', spotB: '#ff9a3d', price: 800 };
 
 /** Morceau synthétique de 3 s : un seul coup sec à 1 s, donc une seule note attendue. */
 function samplesWithClickAt1s(): Float32Array {
@@ -322,8 +322,20 @@ describe('GamePageComponent', () => {
       expect(scene.classList).toContain('stage-backdrop');
       expect(scene.style.getPropertyValue('--stage')).toBe('#5c1408');
       expect(scene.style.getPropertyValue('--spot-a')).toBe('#ff3b2f');
-      // Fond animé : le shader est posé dans la scène (il reste inerte sous jsdom, sans WebGL).
-      expect(scene.querySelector('app-stage-shader')).not.toBeNull();
+      // Sans image de décor, pas de calques de lumières : le dégradé seul.
+      expect(scene.querySelector('app-stage-lights')).toBeNull();
+    });
+
+    it('pose le décor rendu (image) du fond choisi derrière la piste', async () => {
+      auth.currentUser.set({ id: 'u1', name: 'Léa', email: '', tag: 'LEA2', createdAt: '', coins: 0, avatars: [], backgrounds: ['rock'],
+        avatar: { id: 'rocker', name: 'Rockeur', emoji: '🎸', color: '#8f5bff', price: 0 }, background: { ...lava, image: 'backgrounds/rock.webp' } });
+      await create();
+
+      const scene = (fixture.nativeElement as HTMLElement).querySelector('.game') as HTMLElement;
+      expect(scene.style.getPropertyValue('--stage-image')).toContain('backgrounds/rock.webp');
+      // Les lumières du décor (calques base / A / B) battent par-dessus.
+      const layers = [...scene.querySelectorAll<HTMLElement>('app-stage-lights div')].map((d) => d.style.backgroundImage.replace(/url\("?|"?\)/g, ''));
+      expect(layers).toEqual(['backgrounds/rock-base.webp', 'backgrounds/rock-a.webp', 'backgrounds/rock-b.webp']);
     });
 
     it('affiche le record à battre quand la partie ne le bat pas', async () => {

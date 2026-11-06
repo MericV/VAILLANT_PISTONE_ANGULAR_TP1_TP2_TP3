@@ -4,20 +4,22 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
-import { GroupTrack, LiveLaunch, LiveState } from '../../shared/models/group.model';
+import { Group, GroupTrack, LiveLaunch, LivePlayer, LiveState } from '../../shared/models/group.model';
 import { AuthService } from '../../shared/services/auth.service';
 import { GroupService } from '../../shared/services/group.service';
 import { Difficulty, DIFFICULTIES, Instrument, INSTRUMENTS } from '../../shared/utils/beatmap';
 import { httpErrorMessage } from '../../shared/utils/http-error';
 import { AvatarBadgeComponent } from '../avatar-badge/avatar-badge';
+import { StageLightsComponent } from '../stage-lights/stage-lights';
 
 /**
- * Salon d'un groupe : chacun choisit son instrument et sa difficulté, se déclare prêt,
- * l'hôte choisit le morceau et lance. Au lancement, tout le monde part vers la page de jeu
+ * Lobby façon Fortnite (salon d'un groupe) : les joueurs posent côte à côte sur scène, devant le
+ * fond équipé. Chacun choisit son instrument et sa difficulté, se déclare prêt, l'hôte choisit
+ * le morceau et lance. Au lancement, tout le monde part vers la page de jeu
  * avec une heure de départ commune (corrigée du décalage d'horloge avec le serveur).
  */
 @Component({
-  imports: [DecimalPipe, RouterLink, AvatarBadgeComponent],
+  imports: [DecimalPipe, RouterLink, AvatarBadgeComponent, StageLightsComponent],
   templateUrl: './live-page.html',
   styleUrl: './live-page.css',
 })
@@ -44,11 +46,40 @@ export class LivePageComponent implements OnDestroy {
   readonly myId = computed(() => this.auth.currentUser()?.id ?? null);
   readonly me = computed(() => this.live()?.players.find((p) => p.id === this.myId()) ?? null);
   readonly isHost = computed(() => this.live()?.hostId === this.myId());
+  /** Groupe (nom, code d'invitation), lu une fois : le flux en direct ne le contient pas. */
+  readonly group = signal<Group | null>(null);
+  /** Fond de scène équipé dans la boutique, derrière le lobby comme derrière la piste. */
+  readonly backdrop = computed(() => this.auth.currentUser()?.background ?? null);
+
+  /** Quatre places sur scène : moi en deuxième position (au centre), les autres autour, puis les places libres. */
+  readonly lineup = computed<(LivePlayer | null)[]>(() => {
+    const players = this.live()?.players ?? [];
+    const others = players.filter((p) => p.id !== this.myId());
+    return [others[0] ?? null, this.me(), others[1] ?? null, others[2] ?? null];
+  });
 
   constructor() {
     if (!this.auth.currentUser()) this.auth.profile().subscribe({ error: () => undefined });
     this.connect();
     this.service.tracks(this.groupId).subscribe({ next: (tracks) => this.tracks.set(tracks), error: () => undefined });
+    this.service.list().subscribe({ next: (groups) => this.group.set(groups.find((g) => g.id === this.groupId) ?? null), error: () => undefined });
+  }
+
+  /** « + Inviter » : copie le code du groupe, à envoyer à un ami (il le saisit dans Groupes). */
+  invite(): void {
+    const code = this.group()?.code;
+    if (!code) return;
+    void navigator.clipboard?.writeText(code).catch(() => undefined);
+    this.snackBar.open(`Code d’invitation ${code} copié : votre ami le saisit dans « Groupes ».`, 'Fermer', { duration: 6000 });
+  }
+
+  /** Gros bouton du lobby : se déclarer prêt, puis (hôte) lancer quand tout le monde l'est. */
+  play(): void {
+    const me = this.me();
+    if (!me) return;
+    if (!me.ready) this.setMine({ ready: true });
+    else if (this.isHost() && this.live()?.canStart) this.start();
+    else this.setMine({ ready: false });
   }
 
   connect(): void {

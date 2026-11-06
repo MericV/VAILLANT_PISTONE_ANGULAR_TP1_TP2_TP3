@@ -9,7 +9,7 @@ import { AuthService } from '../../shared/services/auth.service';
 import { ShopService } from '../../shared/services/shop.service';
 import { httpErrorMessage } from '../../shared/utils/http-error';
 import { AvatarBadgeComponent } from '../avatar-badge/avatar-badge';
-import { StageShaderComponent } from '../stage-shader/stage-shader';
+import { StageLightsComponent } from '../stage-lights/stage-lights';
 
 /** État d'un article pour le joueur : il décide du bouton affiché sur sa carte. */
 export type ItemStatus = 'equipped' | 'owned' | 'affordable' | 'locked';
@@ -45,7 +45,7 @@ interface ShopItem {
  * puis on choisit ceux utilisés. Le serveur reste seul juge du solde et de la possession.
  */
 @Component({
-  imports: [DecimalPipe, AvatarBadgeComponent, MatTabsModule, StageShaderComponent],
+  imports: [DecimalPipe, AvatarBadgeComponent, MatTabsModule, StageLightsComponent],
   templateUrl: './shop-page.html',
   styleUrl: './shop-page.css',
 })

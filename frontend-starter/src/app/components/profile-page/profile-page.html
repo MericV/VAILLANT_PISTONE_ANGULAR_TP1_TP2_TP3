@@ -18,4 +18,9 @@
   }
 </section>
 
-<app-guitar-viewer />
+@if (auth.currentUser(); as user) {
+  <!-- Une seule itération, suivie par l'identifiant : changer d'avatar recrée la scène 3D. -->
+  @for (id of [user.avatar.id]; track id) {
+    <app-avatar-viewer [avatarId]="id" [name]="user.avatar.name" />
+  }
+}

@@ -29,21 +29,21 @@ export function avatarById(id) {
 }
 
 /**
- * Fonds de scène affichés derrière la piste pendant une partie.
- * Le fond de départ est un simple dégradé CSS ; les fonds payants sont des shaders WebGL
- * animés (`shader`), qui réagissent aux basses de la musique et au combo du joueur.
- * Les couleurs (`stage`, `deep`, `spotA`, `spotB`) servent de décor de secours quand le
- * navigateur n'a pas WebGL, et d'arrière-plan pendant le chargement du shader.
+ * Fonds de scène affichés derrière la piste, dans le lobby et dans l'aperçu de la boutique.
+ * Chaque fond est une scène rendue dans Blender (`image`, servie par le frontend). Les
+ * identifiants historiques (caustics, aurora…) sont conservés : les achats restent valables.
+ * Les couleurs (`stage`, `deep`, `spotA`, `spotB`) servent de décor pendant le chargement.
  */
 export const BACKGROUNDS = [
-  { id: "stage", name: "Scène néon", shader: null, stage: "#2b1468", deep: "#140a33", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 0 },
-  { id: "caustics", name: "Caustiques océan", shader: "caustics", stage: "#0c3a5c", deep: "#04121f", spotA: "#2ee6ff", spotB: "#4d7cff", price: 400 },
-  { id: "aurora", name: "Aurore boréale", shader: "aurora", stage: "#0b2a3a", deep: "#020814", spotA: "#4dffa6", spotB: "#b48cff", price: 800 },
-  { id: "lasers", name: "Lasers de concert", shader: "lasers", stage: "#1b0a2e", deep: "#05020a", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 1500 },
-  { id: "flux", name: "Flux néon", shader: "flux", stage: "#06203a", deep: "#01060f", spotA: "#2ee6ff", spotB: "#4d7cff", price: 1000 },
-  { id: "dots", name: "Vagues de points", shader: "dots", stage: "#1a0626", deep: "#05010a", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 1800 },
-  { id: "sparks", name: "Étincelles", shader: "sparks", stage: "#3a1204", deep: "#0a0301", spotA: "#ff8a1f", spotB: "#ffd34d", price: 2500 },
-  { id: "ascii", name: "Tunnel ASCII", shader: "ascii", stage: "#04142a", deep: "#010409", spotA: "#4d7cff", spotB: "#4dffe0", price: 3000 },
+  { id: "stage", name: "Garage de répétition", image: "backgrounds/garage.webp", stage: "#3a2a10", deep: "#0d0905", spotA: "#ffb347", spotB: "#ffe0a3", price: 0 },
+  { id: "caustics", name: "Bar blues", image: "backgrounds/bar.webp", stage: "#3d2410", deep: "#0e0804", spotA: "#ff9a3d", spotB: "#ffd34d", price: 400 },
+  { id: "aurora", name: "Club enfumé", image: "backgrounds/club.webp", stage: "#0b2a2a", deep: "#020a0a", spotA: "#4dffa6", spotB: "#2ee6ff", price: 800 },
+  { id: "flux", name: "Scène néon", image: "backgrounds/neon.webp", stage: "#2a1438", deep: "#08040e", spotA: "#ff3fb4", spotB: "#2ee6ff", price: 1000 },
+  { id: "rock", name: "Concert rock", image: "backgrounds/rock.webp", stage: "#3a0f3d", deep: "#07030a", spotA: "#ff3fb4", spotB: "#ffc46b", price: 1200 },
+  { id: "lasers", name: "Show laser", image: "backgrounds/lasers.webp", stage: "#0c2a14", deep: "#020a04", spotA: "#4dff6a", spotB: "#2ee6ff", price: 1500 },
+  { id: "dots", name: "Concert sur le toit", image: "backgrounds/toit.webp", stage: "#3a3448", deep: "#0a0910", spotA: "#ffb38a", spotB: "#ffd9a3", price: 1800 },
+  { id: "sparks", name: "Festival pyro", image: "backgrounds/fest.webp", stage: "#3a1a04", deep: "#0a0401", spotA: "#ff8a1f", spotB: "#ffd34d", price: 2500 },
+  { id: "ascii", name: "Stade", image: "backgrounds/stade.webp", stage: "#1a1430", deep: "#05040a", spotA: "#ff3fb4", spotB: "#8fa8ff", price: 3000 },
 ];
 
 export const STARTER_BACKGROUND = "stage";

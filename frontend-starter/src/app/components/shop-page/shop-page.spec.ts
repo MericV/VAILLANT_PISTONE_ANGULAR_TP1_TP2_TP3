@@ -16,9 +16,9 @@ const avatars: Avatar[] = [
   { id: 'dragon', name: 'Dragon', emoji: '🐉', color: '#ff3b2f', price: 1500 },
 ];
 const backgrounds: Background[] = [
-  { id: 'stage', name: 'Scène néon', shader: null, stage: '#2b1468', deep: '#140a33', spotA: '#ff3fb4', spotB: '#2ee6ff', price: 0 },
-  { id: 'sunset', name: 'Coucher de soleil', shader: 'lasers', stage: '#6b1d3a', deep: '#1f0b1a', spotA: '#ff8a1f', spotB: '#ffd34d', price: 300 },
-  { id: 'gold', name: 'Salle d’or', shader: 'lasers', stage: '#4a3708', deep: '#140f02', spotA: '#ffd34d', spotB: '#ffffff', price: 2500 },
+  { id: 'stage', name: 'Scène néon', image: null, stage: '#2b1468', deep: '#140a33', spotA: '#ff3fb4', spotB: '#2ee6ff', price: 0 },
+  { id: 'sunset', name: 'Coucher de soleil', image: null, stage: '#6b1d3a', deep: '#1f0b1a', spotA: '#ff8a1f', spotB: '#ffd34d', price: 300 },
+  { id: 'gold', name: 'Salle d’or', image: null, stage: '#4a3708', deep: '#140f02', spotA: '#ffd34d', spotB: '#ffffff', price: 2500 },
 ];
 const player = (coins: number, owned: Partial<User> = {}): User => ({
   id: 'u1', name: 'Léa', email: 'l@x.fr', tag: 'LEA2', createdAt: '', coins,
