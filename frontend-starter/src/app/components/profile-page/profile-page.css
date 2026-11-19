@@ -1,2 +1,37 @@
-:host { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 22rem); gap: 1.5rem; align-items: center; max-width: 1000px; margin: 0 auto; }
-@media (max-width: 760px) { :host { grid-template-columns: 1fr; } }
+/*
+ * Grille bento asymétrique : l'avatar 3D en grande tuile à gauche, l'identité en haut à droite,
+ * trois chiffres en petites tuiles et le décor équipé en bandeau.
+ */
+:host {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas:
+    'avatar avatar ident ident'
+    'avatar avatar ident ident'
+    'coins tag avatars scene';
+  gap: 1rem;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.ident { grid-area: ident; }
+.avatar { grid-area: avatar; display: grid; align-content: space-between; padding: 1rem; }
+.tile { position: relative; overflow: hidden; border-radius: var(--radius); }
+.caption { margin: 0; font-weight: 700; }
+.label { display: block; color: var(--muted); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* Chiffre : un orbe de couleur flou derrière le verre. */
+.stat { display: grid; align-content: end; min-height: 8rem; padding: 1rem 1.2rem; isolation: isolate; }
+.stat::before { content: ''; position: absolute; z-index: -1; inset: -40% -30% auto auto; width: 80%; aspect-ratio: 1; background: radial-gradient(circle, var(--orb), transparent 65%); filter: blur(24px); opacity: 0.55; }
+.stat b { font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 2rem); font-variant-numeric: tabular-nums; }
+.stat:nth-of-type(1) { grid-area: coins; }
+.stat:nth-of-type(2) { grid-area: tag; }
+.stat:nth-of-type(3) { grid-area: avatars; }
+
+/* Décor équipé : l'image de la boutique, avec un voile pour lire le nom. */
+.scene { grid-area: scene; display: grid; align-content: end; min-height: 8rem; padding: 1rem 1.2rem; }
+.scene::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 30%, rgb(5 2 20 / 0.75)); }
+.scene > * { position: relative; z-index: 1; }
+
+@media (max-width: 760px) {
+  :host { grid-template-columns: 1fr 1fr; grid-template-areas: 'avatar avatar' 'ident ident' 'coins tag' 'avatars scene'; }
+}

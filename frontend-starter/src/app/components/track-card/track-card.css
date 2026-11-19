@@ -1,44 +1,103 @@
 :host { display: block; }
-.track { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 1rem; padding: 0.9rem 0 0.9rem 0.75rem; border-left: 3px solid transparent; }
-/* Piste en lecture : filet laiton, comme une frette. */
-.track.current { border-left-color: var(--brass); background: var(--surface-alt); }
 
-button.play:not([class*='mat-']) { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; font-size: 0.9rem; border-radius: 50%; }
-
-h3 { overflow-wrap: anywhere; }
-/* Texte saisi par l'utilisateur : retours à la ligne conservés, longueur déjà bornée à 500. */
-.description { margin: 0.2rem 0 0; font-size: 0.9rem; white-space: pre-line; overflow-wrap: anywhere; }
-.playing { margin: 0.25rem 0 0; color: var(--brass); font-size: 0.8rem; font-weight: 650; }
-
-.meta { display: flex; gap: 1.25rem; margin: 0; font-size: 0.85rem; }
-dt { color: var(--muted); font-size: 0.75rem; }
-dd { margin: 0; font-variant-numeric: tabular-nums; }
-
-/* Lien stylé en bouton : c'est une navigation vers le jeu, pas une action. */
-.game-link { padding: 0.55rem 1rem; color: var(--bg); font-weight: 650; text-decoration: none; background: var(--brass); border-radius: var(--radius-small); }
-.game-link:hover { filter: brightness(1.1); }
-
-.secondary { display: flex; gap: 0.25rem; }
-button.remove:not([class*='mat-']) { color: var(--error); border-color: transparent; }
-
-/* Formulaire d'édition : occupe toute la ligne de la card. */
-.track.editing { grid-template-columns: minmax(0, 1fr); padding-right: 0.75rem; border-left-color: var(--accent); background: var(--surface-alt); }
-.edit fieldset { display: grid; margin: 0; padding: 0; border: 0; min-width: 0; }
-.edit label { margin: 0.4rem 0; }
-.edit-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; }
-/* Supprimer à l'écart, à droite : on ne le clique pas par erreur en voulant enregistrer. */
-.edit-actions .remove { margin-left: auto; }
-
-@media (max-width: 640px) {
-  .track { grid-template-columns: auto minmax(0, 1fr); padding-left: 0.5rem; }
-  .meta { grid-column: 2; }
-  .game-link, .secondary { grid-column: 2; justify-self: start; }
+/* Pochette d'album : la carte n'a pas de cadre, la pochette porte tout le visuel. */
+.track {
+  --c1: hsl(var(--hue) 85% 62%);
+  --c2: hsl(calc(var(--hue) + 70) 85% 55%);
+  display: grid;
+  gap: 0.6rem;
 }
 
-/* Record : étoiles gagnées en laiton, les autres en filigrane. */
-.best .stars span { color: var(--border); }
-.best .stars span.won { color: var(--brass); }
+.cover {
+  position: relative;
+  cursor: pointer;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background:
+    radial-gradient(70% 70% at 22% 22%, var(--c1), transparent 70%),
+    radial-gradient(70% 70% at 82% 82%, var(--c2), transparent 70%),
+    #120b2c;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: var(--radius-small);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+  transition: transform var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+}
+/* Vraie pochette d'album : l'image remplace les orbes générés. */
+.cover.has-art { background-position: center; background-size: cover; background-repeat: no-repeat; }
+.track:hover .cover { transform: translateY(-3px); box-shadow: 0 16px 40px rgb(0 0 0 / 0.45), 0 0 30px color-mix(in srgb, var(--c1) 35%, transparent); }
+.track.current .cover { border-color: var(--c1); box-shadow: 0 0 0 2px var(--c1), 0 0 34px color-mix(in srgb, var(--c1) 50%, transparent); }
 
-/* Survol d'une piste : fond et filet violets, sans déplacer la liste. */
-.track { transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease); }
-.track:hover:not(.editing, .current) { background: color-mix(in srgb, var(--surface-alt) 60%, transparent); border-left-color: var(--accent); }
+
+/* Actions au survol : écouter, jouer, modifier. Toujours visibles au clavier et sur écran tactile. */
+.hover-actions { position: absolute; inset: 0.6rem 0.6rem auto auto; display: flex; gap: 0.4rem; opacity: 0; transition: opacity var(--fast) var(--ease); }
+.track:hover .hover-actions, .track:focus-within .hover-actions, .track.current .hover-actions { opacity: 1; }
+@media (hover: none) { .hover-actions { opacity: 1; } }
+/* Lecture : grosse pastille liquid glass semi-transparente, au centre, seulement au survol de la pochette. */
+button.play:not([class*='mat-']) {
+  position: absolute; z-index: 1; top: 50%; left: 50%;
+  display: grid; place-items: center; width: 4rem; height: 4rem; padding: 0 0 0 0.25rem;
+  color: #fff; font-size: 1.5rem;
+  background: var(--glass-sheen), rgb(255 255 255 / 0.14);
+  border: 1px solid var(--glass-edge); border-radius: 50%;
+  box-shadow: var(--glass-shadow), 0 8px 24px rgb(0 0 0 / 0.3);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  opacity: 0; transform: translate(-50%, -50%) scale(0.85);
+  transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), background-color var(--fast) var(--ease);
+}
+button.play svg { width: 1.7rem; height: 1.7rem; fill: currentColor; filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.35)); }
+/* Visible au survol, au clavier, et pendant le chargement du son. */
+.cover:hover button.play, button.play:focus-visible, button.play:disabled { opacity: 1; transform: translate(-50%, -50%); }
+button.play:not([class*='mat-']):hover:not(:disabled) { background: var(--glass-sheen), rgb(255 255 255 / 0.28); filter: none; transform: translate(-50%, -50%) scale(1.06); }
+@media (hover: none) { button.play:not([class*='mat-']) { opacity: 1; transform: translate(-50%, -50%); } }
+button.more:not([class*='mat-']) { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; padding: 0; color: #fff; font-size: 0.85rem; background: rgb(20 12 40 / 0.55); border: 1px solid rgb(255 255 255 / 0.3); border-radius: 50%; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+button.more:not([class*='mat-']) { font-size: 0.7rem; letter-spacing: 0.05em; }
+button.more:not([class*='mat-']):hover:not(:disabled) { background: rgb(255 255 255 / 0.25); box-shadow: none; }
+/* « Jouer » en doré, comme dans le menu : c'est une navigation vers le jeu. */
+.game-link { display: grid; place-items: center; padding: 0 0.95rem; color: #1a1300; font-size: 0.85rem; font-weight: 800; text-decoration: none; background: linear-gradient(180deg, #ffe27a, var(--gold, #ffc93c)); border-radius: 999px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6), 0 0 16px rgb(255 201 60 / 0.45); }
+.game-link:hover { filter: brightness(1.06); }
+
+.playing { position: absolute; left: 0.6rem; bottom: 0.6rem; padding: 0.1rem 0.55rem; color: #fff; font-size: 0.72rem; font-weight: 800; background: rgb(0 0 0 / 0.4); border-radius: 999px; }
+.badge { position: absolute; left: 0.6rem; top: 0.6rem; padding: 0.12rem 0.55rem; color: #fff; font-size: 0.72rem; font-weight: 800; background: rgb(0 0 0 / 0.4); border: 1px solid rgb(255 255 255 / 0.3); border-radius: 999px; }
+.track.current .badge { top: auto; bottom: 0.6rem; left: auto; right: 0.6rem; }
+.badge.perfect { color: #1a1300; background: linear-gradient(180deg, #ffe27a, var(--gold, #ffc93c)); border-color: transparent; box-shadow: 0 0 14px rgb(255 201 60 / 0.6); }
+
+/* Sous la pochette : titre puis détails, comme une liste d'albums. */
+.identity { min-width: 0; }
+.identity h3 { overflow: hidden; font-family: var(--font-body); font-size: 1.05rem; font-weight: 600; font-weight: 700; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
+.details { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; margin: 0.15rem 0 0; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.description { margin: 0.15rem 0 0; overflow: hidden; color: var(--muted); font-size: 0.82rem; text-overflow: ellipsis; white-space: nowrap; }
+.best { color: var(--fg); font-weight: 700; }
+.best .stars span { color: rgb(255 255 255 / 0.2); }
+.best .stars span.won { color: var(--gold, #ffc93c); }
+
+/* Panneau de modification : verre centré au-dessus d'un voile flouté. */
+.edit-panel { width: min(32rem, 100% - 2rem); padding: 1.5rem; color: var(--fg); background: var(--glass-sheen), rgb(22 14 52 / 0.72); border: 1px solid var(--glass-edge); border-radius: var(--radius); box-shadow: var(--glass-shadow), 0 30px 80px rgb(0 0 0 / 0.5); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.edit-panel::backdrop { background: rgb(5 2 20 / 0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.edit h2 { margin-bottom: 0.2rem; }
+.added { margin: 0 0 0.4rem; color: var(--muted); font-size: 0.85rem; }
+.edit fieldset { display: grid; margin: 0; padding: 0; border: 0; min-width: 0; }
+.edit label { margin: 0.4rem 0; }
+.edit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+/* Supprimer à l'écart, à droite : on ne le clique pas par erreur en voulant enregistrer. */
+.edit-actions .remove, .confirm { margin-left: auto; }
+button.remove:not([class*='mat-']) { color: var(--error); border-color: transparent; }
+.confirm { color: var(--error); font-weight: 700; }
+button.danger:not([class*='mat-']) { background: linear-gradient(135deg, #ff6b8a, var(--cta)); box-shadow: 0 0 18px color-mix(in srgb, var(--cta) 45%, transparent); }
+
+/* Pochette dans le panneau : aperçu carré et boutons. */
+.art-field { display: flex; align-items: center; gap: 1rem; margin: 0.6rem 0 0.4rem; }
+.art-preview { flex-shrink: 0; width: 5.5rem; height: 5.5rem; background: radial-gradient(70% 70% at 22% 22%, hsl(var(--hue) 85% 62%), transparent 70%), radial-gradient(70% 70% at 82% 82%, hsl(calc(var(--hue) + 70) 85% 55%), transparent 70%), #120b2c; border: 1px solid rgb(255 255 255 / 0.15); border-radius: var(--radius-small); }
+.art-preview.has-art { background-position: center; background-size: cover; }
+.art-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.art-label { flex-basis: 100%; color: var(--muted); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+/* Le <label> du sélecteur d'image prend l'allure d'un bouton secondaire. */
+.ghost-button { display: inline-block; margin: 0; padding: 0.6rem 1.1rem; font-weight: 650; background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--radius-small); cursor: pointer; }
+.ghost-button:hover, .ghost-button:focus-within { background: var(--surface-alt); }
+
+/* Cœur des préférés : en bas à droite de la pochette, rose néon quand il est actif. */
+button.heart:not([class*='mat-']) { position: absolute; z-index: 1; right: 0.6rem; bottom: 0.6rem; display: grid; place-items: center; width: 2.2rem; height: 2.2rem; padding: 0; color: #fff; font-size: 1.15rem; line-height: 1; background: rgb(20 12 40 / 0.55); border: 1px solid rgb(255 255 255 / 0.3); border-radius: 50%; box-shadow: none; opacity: 0; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease); }
+.track:hover button.heart, button.heart:focus-visible, button.heart.on { opacity: 1; }
+button.heart.on:not([class*='mat-']) { color: #ff3fb4; border-color: rgb(255 63 180 / 0.6); text-shadow: 0 0 10px rgb(255 63 180 / 0.8); }
+button.heart:not([class*='mat-']):hover:not(:disabled) { transform: scale(1.1); box-shadow: none; filter: none; }
+.track.current .playing ~ button.heart { bottom: 2.4rem; }
+@media (hover: none) { button.heart:not([class*='mat-']) { opacity: 1; } }

@@ -30,10 +30,11 @@ h1 { font-size: clamp(1.6rem, 3.5vw, 2.4rem); }
   min-width: 11rem;
   padding: 0.55rem 0.9rem;
   text-align: center;
-  background: rgb(10 5 30 / 0.72);
-  border: 1px solid var(--border);
+  background: var(--glass-sheen), var(--surface);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius-small);
-  backdrop-filter: blur(6px);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
 }
 .slot.me .plate { border-color: var(--neon); box-shadow: 0 0 18px color-mix(in srgb, var(--neon) 40%, transparent); }
 .plate b { font-size: 1.05rem; }
@@ -51,7 +52,8 @@ button.invite:not([class*='mat-']) {
   height: 130px;
   color: var(--muted);
   font-weight: 700;
-  background: rgb(10 5 30 / 0.45);
+  background: rgb(255 255 255 / 0.05);
+  backdrop-filter: var(--glass-blur);
   border: 2px dashed var(--border);
   border-radius: 50%;
 }
@@ -65,10 +67,11 @@ button.invite:not([class*='mat-']):hover:not(:disabled) { color: var(--fg); bord
   align-items: end;
   gap: 1rem 2rem;
   padding: 1rem 1.25rem;
-  background: rgb(10 5 30 / 0.72);
-  border: 1px solid var(--border);
+  background: var(--glass-sheen), var(--surface);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
-  backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
 }
 .setup { display: grid; gap: 0.5rem; }
 .track-field { display: grid; gap: 0.3rem; font-weight: 650; max-width: 28rem; }

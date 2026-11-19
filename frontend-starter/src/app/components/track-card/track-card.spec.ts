@@ -10,6 +10,7 @@ const track: Track = {
   originalName: 'blues.mp3',
   mimeType: 'audio/mpeg',
   size: 3 * 1024 * 1024,
+  duration: 184,
   createdAt: '2026-09-24T08:00:00.000Z',
 };
 
@@ -32,6 +33,7 @@ describe('TrackCardComponent', () => {
     expect(content).not.toContain('blues.mp3'); // le titre choisi suffit
     expect(content).toContain('MP3');
     expect(content).toContain('3.0 Mo');
+    expect(content).toContain('3:04'); // durée
   });
 
   it('propose un lien Jouer vers la page de jeu de la piste', () => {
@@ -50,14 +52,20 @@ describe('TrackCardComponent', () => {
     expect(play).toHaveBeenCalledWith(track);
   });
 
-  it('range « Supprimer » dans le formulaire de modification', async () => {
+  it('range « Supprimer » dans le panneau de modification et demande confirmation', async () => {
     const remove = vi.fn();
     fixture.componentInstance.remove.subscribe(remove);
     expect(button('Supprimer')).toBeNull(); // pas sur la carte
 
     fixture.componentRef.setInput('editing', true);
     await fixture.whenStable();
+    expect((host().querySelector('dialog') as HTMLDialogElement).open).toBe(true);
     button('Supprimer').click();
+    await fixture.whenStable();
+    expect(remove).not.toHaveBeenCalled(); // premier clic : confirmation demandée
+    expect(host().textContent).toContain('Supprimer définitivement ?');
+
+    button('Confirmer la suppression de').click();
 
     expect(remove).toHaveBeenCalledWith(track);
   });
@@ -70,8 +78,19 @@ describe('TrackCardComponent', () => {
 
     fixture.componentRef.setInput('editing', true);
     await fixture.whenStable();
-    expect(button('Supprimer').disabled).toBe(true);
-    expect(button('Supprimer').textContent).toContain('Suppression…');
+    fixture.componentInstance.confirming.set(true);
+    await fixture.whenStable();
+    expect(button('Confirmer la suppression de').disabled).toBe(true);
+    expect(button('Confirmer la suppression de').textContent).toContain('Suppression…');
+  });
+
+  it('affiche un badge doré pour un record parfait', async () => {
+    fixture.componentRef.setInput('best', {
+      id: 's1', trackId: 'track-1', difficulty: 'expert', instrument: 'lead', score: 9000, stars: 5, accuracy: 99, maxCombo: 50, updatedAt: '',
+    });
+    await fixture.whenStable();
+
+    expect(host().querySelector('.badge.perfect')?.textContent).toContain('5★ parfait');
   });
 
   describe('modification', () => {
@@ -138,5 +157,18 @@ describe('TrackCardComponent', () => {
     expect(host().querySelector('.best')?.textContent).toContain('4,200');
     expect(host().querySelectorAll('.best .won').length).toBe(3);
     expect(host().textContent).toContain('3 étoile(s) sur 5');
+  });
+
+  it('le cœur signale l’ajout aux préférés, et reste allumé pour un préféré', async () => {
+    const toggle = vi.fn();
+    fixture.componentInstance.favoriteToggle.subscribe(toggle);
+    (host().querySelector('button.heart') as HTMLButtonElement).click();
+    expect(toggle).toHaveBeenCalledWith(track);
+
+    fixture.componentRef.setInput('favorite', true);
+    await fixture.whenStable();
+    const heart = host().querySelector('button.heart') as HTMLButtonElement;
+    expect(heart.classList).toContain('on');
+    expect(heart.getAttribute('aria-pressed')).toBe('true');
   });
 });

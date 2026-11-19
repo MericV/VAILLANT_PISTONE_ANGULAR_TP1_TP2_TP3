@@ -6,3 +6,8 @@
 
 # Scène Blender de la page Accueil (fichier lourd, hors dépôt)
 blender/
+
+# Pistes de base : morceaux sous droits, gardés en local (seuls README et .gitkeep sont suivis)
+backend/pistes-de-base/*
+!backend/pistes-de-base/README.md
+!backend/pistes-de-base/.gitkeep

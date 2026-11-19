@@ -44,4 +44,6 @@ export interface User {
   background: Background;
   /** Identifiants des fonds possédés. */
   backgrounds: string[];
+  /** Identifiants des morceaux préférés (playlist « Coups de cœur »). */
+  favorites?: string[];
 }

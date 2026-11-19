@@ -1,6 +1,51 @@
 :host { display: block; }
 h2 { margin-bottom: 0.25rem; }
-.hint { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
+.hint { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
 button.submit:not([class*='mat-']) { width: 100%; margin-top: 0.5rem; }
+
+/* Zone de dépôt : verre en pointillés, qui s'illumine quand un fichier la survole. */
+.drop {
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+  margin: 0.9rem 0;
+  padding: 1.4rem 1rem;
+  text-align: center;
+  background: rgb(255 255 255 / 0.04);
+  border: 2px dashed rgb(255 255 255 / 0.22);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+}
+.drop svg { width: 2rem; height: 2rem; margin-bottom: 0.3rem; fill: none; stroke: var(--link); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.drop-title { font-family: var(--font-display); font-size: 1rem; }
+.drop-sub { color: var(--muted); font-weight: 500; }
+.drop:hover, .drop:focus-within, .drop.over { background: rgb(143 91 255 / 0.14); border-color: var(--link); box-shadow: 0 0 26px rgb(143 91 255 / 0.35); }
+.drop.disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Fichiers choisis : nom, taille ; le fichier en cours d'envoi est surligné. */
+.files { display: grid; gap: 0.35rem; margin: 0 0 0.6rem; padding: 0; list-style: none; }
+.files li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; font-size: 0.88rem; background: rgb(255 255 255 / 0.05); border: 1px solid var(--border); border-radius: var(--radius-small); }
+.files li.active { border-color: var(--link); box-shadow: 0 0 14px rgb(143 91 255 / 0.35); }
+.files li.done { opacity: 0.55; }
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.size { color: var(--muted); font-variant-numeric: tabular-nums; }
+button.remove:not([class*='mat-']) { width: 1.6rem; height: 1.6rem; padding: 0; color: var(--muted); font-size: 0.75rem; background: transparent; border: 0; box-shadow: none; }
+button.remove:not([class*='mat-']):hover:not(:disabled) { color: var(--fg); box-shadow: none; }
+
+/* Progression : barre lumineuse en dégradé néon. */
 .progress { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.9rem; font-variant-numeric: tabular-nums; }
-progress { flex: 1; height: 0.6rem; accent-color: var(--accent); }
+progress { flex: 1; height: 0.55rem; overflow: hidden; appearance: none; background: rgb(255 255 255 / 0.1); border: 0; border-radius: 999px; }
+progress::-webkit-progress-bar { background: rgb(255 255 255 / 0.1); border-radius: 999px; }
+progress::-webkit-progress-value { background: linear-gradient(90deg, #8f5bff, #ff3fb4); border-radius: 999px; box-shadow: 0 0 12px #ff3fb4; transition: width 150ms linear; }
+progress::-moz-progress-bar { background: linear-gradient(90deg, #8f5bff, #ff3fb4); border-radius: 999px; box-shadow: 0 0 12px #ff3fb4; }
+
+/* Pochette facultative : aperçu carré (note de musique tant qu'aucune image n'est choisie). */
+.art-field { display: flex; align-items: center; gap: 0.9rem; margin: 0.2rem 0 0.4rem; }
+.art-preview { display: grid; flex-shrink: 0; place-items: center; width: 4.5rem; height: 4.5rem; color: var(--muted); font-size: 1.6rem; background: rgb(255 255 255 / 0.05) center / cover no-repeat; border: 1px dashed rgb(255 255 255 / 0.22); border-radius: var(--radius-small); }
+.art-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; }
+.art-label { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 0.8rem; font-weight: 700; }
+.art-label small { font-weight: 500; }
+.ghost-button { display: inline-block; margin: 0; padding: 0.5rem 0.95rem; font-weight: 650; background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--radius-small); cursor: pointer; }
+.ghost-button:hover, .ghost-button:focus-within { background: var(--surface-alt); }
+.ghost-button.disabled { opacity: 0.55; cursor: not-allowed; }

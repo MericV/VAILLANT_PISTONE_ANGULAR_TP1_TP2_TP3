@@ -52,9 +52,11 @@
   gap: 0.5rem;
   padding: 0.7rem 0.8rem 0.85rem;
   text-align: center;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--rarity) 16%, rgb(20 10 51 / 0.9)), rgb(12 6 30 / 0.92));
-  border: 1px solid color-mix(in srgb, var(--rarity) 40%, transparent);
-  border-radius: 16px;
+  background: var(--glass-sheen), linear-gradient(180deg, color-mix(in srgb, var(--rarity) 18%, rgb(20 10 51 / 0.35)), rgb(12 6 30 / 0.45));
+  border: 1px solid color-mix(in srgb, var(--rarity) 45%, rgb(255 255 255 / 0.15));
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow), 0 0 28px color-mix(in srgb, var(--rarity) 18%, transparent);
+  backdrop-filter: var(--glass-blur);
 }
 .item[data-rarity='rare'] { --rarity: #4dc3ff; }
 .item[data-rarity='epic'] { --rarity: #b48cff; }

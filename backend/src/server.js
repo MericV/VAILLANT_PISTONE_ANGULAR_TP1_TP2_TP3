@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { createApp } from "./app.js";
+import { createApp, seedBaseTracks } from "./app.js";
 import { User } from "./models/User.js";
 import { Score } from "./models/Score.js";
 
@@ -62,6 +62,15 @@ try {
 } catch (error) {
   console.error("[startup] Impossible de mettre à jour les index des scores", error);
   throw error;
+}
+
+try {
+  // Catalogue commun : les fichiers déposés dans backend/pistes-de-base/ deviennent des pistes de base.
+  const count = await seedBaseTracks();
+  console.log(`[startup] ${count} piste(s) de base au catalogue`);
+} catch (error) {
+  // Le catalogue est un bonus : l'API démarre même s'il ne peut pas être préparé.
+  console.error("[startup] Impossible de préparer les pistes de base", error);
 }
 
 const server = createApp().listen(port, () => {

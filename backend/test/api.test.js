@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
-import { createApp } from "../src/app.js";
+import { createApp, titleFromFile, trackListOptions } from "../src/app.js";
 import { TAG_PATTERN, User } from "../src/models/User.js";
 import { Track } from "../src/models/Track.js";
 import { Score } from "../src/models/Score.js";
@@ -362,4 +362,56 @@ test("fond affiché : 400 pour un fond inconnu, 404 pour un réglage inconnu", a
     });
   assert.equal((await put("background", { background: "plage" })).status, 400);
   assert.equal((await put("password", { password: "x" })).status, 404);
+});
+
+test("liste des pistes : paramètres inconnus ramenés aux défauts, recherche échappée", () => {
+  assert.deepEqual(trackListOptions({}), { page: 1, limit: 5, q: "", sort: "recent", record: null });
+  assert.deepEqual(trackListOptions({ page: "2", limit: "99", sort: "record", record: "with" }), {
+    page: 2, limit: 20, q: "", sort: "record", record: "with",
+  });
+  assert.equal(trackListOptions({ sort: "$where", record: "all" }).sort, "recent");
+  // Un motif comme « (a+)+ » serait coûteux dans MongoDB : il est cherché comme texte.
+  assert.equal(trackListOptions({ q: " (a+)+ blues. " }).q, "\\(a\\+\\)\\+ blues\\.");
+});
+
+test("piste : la durée est facultative et bornée", () => {
+  const base = { ownerId: new mongoose.Types.ObjectId(), title: "B", originalName: "b.mp3", storedName: "x", mimeType: "audio/mpeg", size: 1 };
+  assert.equal(new Track(base).validateSync(), undefined);
+  assert.equal(new Track(base).toPublic().duration, null);
+  assert.ok(new Track({ ...base, duration: -3 }).validateSync());
+  assert.equal(new Track({ ...base, duration: 184 }).toPublic().duration, 184);
+});
+
+test("pistes de base : sans propriétaire, titre tiré du nom du fichier", () => {
+  const base = { title: "B", originalName: "b.mp3", storedName: "x", mimeType: "audio/mpeg", size: 1 };
+  assert.equal(new Track({ ...base, base: true }).validateSync(), undefined);
+  assert.equal(new Track({ ...base, base: true }).toPublic().ownerId, null);
+  assert.ok(new Track(base).validateSync()?.errors.ownerId); // une piste importée a toujours un propriétaire
+  assert.equal(titleFromFile("blues-en-mi_90bpm.mp3"), "Blues en mi 90bpm");
+});
+
+test("pochette : image refusée (400 clair), lecture protégée, nom de stockage jamais exposé", async () => {
+  const body = new FormData();
+  body.append("audio", new Blob(["son"], { type: "audio/mpeg" }), "a.mp3");
+  body.append("cover", new Blob(["pas une image"], { type: "text/plain" }), "notes.txt");
+  const r = await fetch(base + "/api/tracks", { method: "POST", headers: { Authorization: `Bearer ${validToken()}` }, body });
+  assert.equal(r.status, 400);
+  assert.match((await r.json()).message, /Pochette refusée/);
+
+  const anonymous = await fetch(base + "/api/tracks/" + new mongoose.Types.ObjectId() + "/cover");
+  assert.equal(anonymous.status, 401);
+
+  const t = new Track({ ownerId: new mongoose.Types.ObjectId(), title: "B", originalName: "b.mp3", storedName: "x", coverName: "secret.jpg", mimeType: "audio/mpeg", size: 1 });
+  assert.equal(t.toPublic().cover, true);
+  assert.equal(JSON.stringify(t.toPublic()).includes("secret"), false);
+});
+
+test("préférés : liste vide par défaut dans le profil, routes protégées", async () => {
+  const u = new User({ name: "Fan", email: "fan@example.com", password: "12345678" });
+  assert.deepEqual(u.toPublic().favorites, []);
+  u.favorites.push(new mongoose.Types.ObjectId());
+  assert.equal(typeof u.toPublic().favorites[0], "string");
+
+  const r = await fetch(base + "/api/tracks/" + new mongoose.Types.ObjectId() + "/favorite", { method: "PUT" });
+  assert.equal(r.status, 401);
 });

@@ -1,23 +1,20 @@
-<header class="topbar">
-  <a class="brand" routerLink="/home">
-    <b>Guitar Practice Cloud</b>
-    <small>Le cloud qui manque à votre ampli</small>
-  </a>
-  <nav aria-label="Navigation principale">
+<header #bar class="topbar" (pointermove)="glow($event, bar)">
+  <!-- La bulle de verre glisse sous le lien survolé (ou focalisé), puis revient sur la page courante. -->
+  <nav #nav aria-label="Navigation principale" (pointerover)="moveBubble($event.target)" (focusin)="moveBubble($event.target)" (pointerleave)="moveBubble(null)">
+    <span class="bubble" aria-hidden="true" [class.on]="bubble()" [style.--x.px]="bubble()?.x" [style.--y.px]="bubble()?.y" [style.--w.px]="bubble()?.w" [style.--h.px]="bubble()?.h"></span>
     <a routerLink="/home" routerLinkActive="active" ariaCurrentWhenActive="page">Accueil</a>
-    <a class="play" routerLink="/lobby" [class.active]="router.url.startsWith('/groups')">Jouer</a>
+    <!-- « Jouer » mène au salon du groupe (/groups/:id/live) ; « Groupes », à la liste des groupes. -->
+    <a class="play" routerLink="/lobby" [class.active]="router.url.endsWith('/live')">Jouer</a>
+    <a routerLink="/groups" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page">Groupes</a>
     <a routerLink="/tracks" routerLinkActive="active" ariaCurrentWhenActive="page">Backing tracks</a>
     <a routerLink="/leaderboard" routerLinkActive="active" ariaCurrentWhenActive="page">Classement</a>
     <a routerLink="/shop" routerLinkActive="active" ariaCurrentWhenActive="page">Boutique</a>
     <a routerLink="/profile" routerLinkActive="active" ariaCurrentWhenActive="page">Profil</a>
-    @if (auth.currentUser(); as user) {
-      <a class="me" routerLink="/shop" [attr.aria-label]="user.name + ', ' + user.coins + ' points'">
-        <app-avatar-badge [avatar]="user.avatar" [size]="30" />
-        <span>{{ user.coins | number }} pts</span>
-      </a>
-    }
     @if (auth.token()) {
-      <button type="button" class="ghost" (click)="logout()">Déconnexion</button>
+      <button type="button" class="logout" (click)="logout()">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
+        Déconnexion
+      </button>
     } @else {
       <a routerLink="/login" routerLinkActive="active" ariaCurrentWhenActive="page">Connexion</a>
     }

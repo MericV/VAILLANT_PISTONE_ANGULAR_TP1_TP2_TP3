@@ -7,20 +7,65 @@
   <p class="hint" aria-hidden="true">Faites défiler ↓</p>
 </section>
 
-<section class="panel">
-  <h2>Vos backing tracks</h2>
-  <p>Importez vos morceaux, jouez-les en rythme et visez les cinq étoiles.</p>
-  <a class="cta" routerLink="/tracks">Ouvrir la bibliothèque</a>
+<!-- Grille bento : tuiles de verre de tailles variées. -->
+<section class="screen" aria-labelledby="bento-title">
+  <h2 id="bento-title" class="section-title">Tout pour progresser</h2>
+  <div class="bento">
+    <a class="tile play" routerLink="/lobby" style="--orb: #ffc93c">
+      <span class="tag">En direct</span>
+      <h3>Jouez en groupe</h3>
+      <p>Retrouvez jusqu’à trois amis dans le lobby. Chacun choisit son instrument (lead, basse, batterie, chant) et sa difficulté, se déclare prêt, et l’hôte lance le morceau : tout le monde joue au même moment, le score du groupe s’affiche en direct.</p>
+      <span class="go">Ouvrir le lobby →</span>
+    </a>
+    <a class="tile tracks" routerLink="/tracks" style="--orb: #ff3fb4">
+      <span class="tag">Bibliothèque</span>
+      <h3>Vos backing tracks</h3>
+      <p>Importez vos morceaux (MP3, WAV, OGG ou M4A), écoutez-les, puis jouez-les en rythme sur la piste de notes générée automatiquement. Visez les cinq étoiles et battez votre record.</p>
+    </a>
+    <a class="tile rank" routerLink="/leaderboard" style="--orb: #2ee6ff">
+      <span class="tag">Classement</span>
+      <h3>Grimpez au sommet</h3>
+      <p>Chaque meilleur score compte, morceau par morceau.</p>
+    </a>
+    <a class="tile profile" routerLink="/profile" style="--orb: #7aa2ff">
+      <span class="tag">Profil</span>
+      <h3>Votre avatar en 3D</h3>
+      <p>Faites-le tourner à la souris, changez de nom.</p>
+    </a>
+  </div>
 </section>
 
-<section class="panel right">
-  <h2>Jouez en groupe</h2>
-  <p>Invitez vos amis et lancez le même morceau, en direct, au même moment.</p>
-  <a class="cta" routerLink="/groups">Voir les groupes</a>
+<!-- Boutique : ce qu'on gagne en jouant et ce qu'on peut s'offrir. -->
+<section class="screen feature" aria-labelledby="shop-title" style="--orb: #b48cff">
+  <div class="copy glass">
+    <span class="tag">Boutique</span>
+    <h2 id="shop-title">Habillez votre scène</h2>
+    <p>Chaque partie rapporte des points : un point pour 100 de score, plus dix par étoile. Dépensez-les dans la boutique pour débloquer de nouveaux avatars et de nouveaux décors.</p>
+    <ul class="facts">
+      <li><b>10 avatars 3D</b> rendus dans Blender, du médiator à la Les Paul dorée, qui tournent sur eux-mêmes au survol.</li>
+      <li><b>9 décors de concert</b>, du garage de répétition au stade, affichés derrière la piste pendant vos parties.</li>
+      <li><b>Des lumières qui battent sur la musique</b> : les projecteurs du décor s’allument sur les basses et les aigus.</li>
+    </ul>
+    <a class="go" routerLink="/shop">Visiter la boutique →</a>
+  </div>
+  <div class="shots" aria-hidden="true">
+    <img src="backgrounds/rock.webp" alt="" loading="lazy" />
+    <img src="backgrounds/neon.webp" alt="" loading="lazy" />
+    <img src="backgrounds/stade.webp" alt="" loading="lazy" />
+  </div>
 </section>
 
-<section class="panel">
-  <h2>Grimpez au classement</h2>
-  <p>Chaque meilleur score compte. Gagnez des points et habillez votre avatar.</p>
-  <a class="cta" routerLink="/leaderboard">Voir le classement</a>
+<!-- Groupes et invitations : comment jouer ensemble. -->
+<section class="screen feature reverse" aria-labelledby="groups-title" style="--orb: #4dffa6">
+  <div class="copy glass">
+    <span class="tag">Groupes et invitations</span>
+    <h2 id="groups-title">Jouez avec vos amis</h2>
+    <p>Créez votre groupe en un clic ou rejoignez celui d’un ami. Chaque groupe a son code d’invitation : partagez-le, vos amis le saisissent et vous retrouvent dans le lobby.</p>
+    <ol class="steps">
+      <li><b>Ajoutez vos amis</b> grâce à leur identifiant (par exemple #K7P2), visible dans leur profil.</li>
+      <li><b>Invitez-les</b> dans votre groupe avec le code, ou depuis une place libre du lobby.</li>
+      <li><b>Jouez ensemble</b> : jusqu’à quatre joueurs sur le même morceau, chacun à son instrument.</li>
+    </ol>
+    <a class="go" routerLink="/groups">Voir mes groupes →</a>
+  </div>
 </section>

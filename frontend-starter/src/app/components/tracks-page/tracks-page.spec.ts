@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { AuthService } from '../../shared/services/auth.service';
+import { User } from '../../shared/models/user.model';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideRouter } from '@angular/router';
@@ -32,12 +35,16 @@ describe('TracksPageComponent', () => {
   let fixture: ComponentFixture<TracksPageComponent>;
   let component: TracksPageComponent;
   let service: {
-    list: ReturnType<typeof vi.fn<(page: number, limit: number) => Observable<Page<Track>>>>;
+    list: ReturnType<typeof vi.fn<(page: number, limit: number, query?: object) => Observable<Page<Track>>>>;
     upload: ReturnType<typeof vi.fn>;
     audio: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    base: ReturnType<typeof vi.fn>;
+    favorites: ReturnType<typeof vi.fn>;
+    setFavorite: ReturnType<typeof vi.fn>;
   };
+  let auth: { currentUser: ReturnType<typeof signal<User | null>> };
   let snackBar: { open: ReturnType<typeof vi.fn> };
   let scores: { mine: ReturnType<typeof vi.fn> };
   const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -49,6 +56,7 @@ describe('TracksPageComponent', () => {
         { provide: TrackService, useValue: service },
         { provide: MatSnackBar, useValue: snackBar },
         { provide: ScoreService, useValue: scores },
+        { provide: AuthService, useValue: auth },
         provideRouter([]),
       ],
     });
@@ -64,39 +72,71 @@ describe('TracksPageComponent', () => {
       audio: vi.fn(),
       remove: vi.fn(() => of(undefined)),
       update: vi.fn(),
+      base: vi.fn(() => of([])),
+      favorites: vi.fn(() => of([])),
+      setFavorite: vi.fn(),
     };
+    auth = { currentUser: signal<User | null>(null) };
     snackBar = { open: vi.fn() };
     scores = { mine: vi.fn(() => of([])) };
   });
 
   afterEach(() => vi.restoreAllMocks());
 
-  describe('bibliothèque paginée', () => {
+  describe('bibliothèque', () => {
     beforeEach(create);
+    const all = { q: '', sort: 'recent', record: null };
 
-    it('charge la page 1 au démarrage et affiche une card par piste', () => {
-      expect(service.list).toHaveBeenCalledWith(1, 5);
-      expect(fixture.nativeElement.querySelectorAll('app-track-card').length).toBe(2);
+    it('charge la première page au démarrage et affiche une card par piste', () => {
+      expect(service.list).toHaveBeenCalledWith(1, 5, all);
+      expect(fixture.nativeElement.querySelectorAll('.tracks app-track-card').length).toBe(2);
     });
 
-    it('effectue une nouvelle requête serveur à chaque changement de page', () => {
-      component.go(2);
-
-      expect(service.list).toHaveBeenLastCalledWith(2, 5);
-      expect(component.page()).toBe(2);
+    it('charge les playlists calculées par le serveur : meilleurs scores et jamais joués', () => {
+      expect(service.list).toHaveBeenCalledWith(1, 12, { sort: 'record', record: 'with' });
+      expect(service.list).toHaveBeenCalledWith(1, 12, { record: 'without' });
+      expect(service.favorites).toHaveBeenCalled();
     });
 
-    it('traduit l’événement du Paginator (pageIndex 0-based) en page API', () => {
-      component.onPage({ pageIndex: 1, pageSize: 10, length: 30, previousPageIndex: 0 });
+    it('« Voir plus » ajoute 10 pistes (deux pages de 5) à la suite des pistes affichées', () => {
+      service.list.mockReturnValueOnce(of(page([makeTrack('c')], { page: 2, total: 4 })));
+      service.list.mockReturnValueOnce(of(page([makeTrack('d')], { page: 3, total: 4 })));
+      component.total.set(4);
 
-      expect(service.list).toHaveBeenLastCalledWith(2, 10);
+      component.loadMore();
+
+      expect(service.list).toHaveBeenCalledWith(2, 5, all);
+      expect(service.list).toHaveBeenLastCalledWith(3, 5, all);
+      expect(component.tracks().map((t) => t.id)).toEqual(['a', 'b', 'c', 'd']);
+      expect(component.hasMore()).toBe(false);
     });
 
-    it('revient en page 1 après un upload réussi', () => {
+    it('relance la recherche depuis la page 1 avec le tri et le filtre choisis', () => {
+      component.loadMore();
+      component.setQuery({ sort: 'record', record: 'with' });
+
+      expect(service.list).toHaveBeenLastCalledWith(1, 5, { q: '', sort: 'record', record: 'with' });
+    });
+
+    it('attend la fin de la frappe avant de chercher un titre', () => {
+      vi.useFakeTimers();
+      service.list.mockClear();
+      component.search('blu');
+      component.search(' blues ');
+      vi.advanceTimersByTime(300);
+      vi.useRealTimers();
+
+      expect(service.list).toHaveBeenCalledTimes(1);
+      expect(service.list).toHaveBeenCalledWith(1, 5, { q: 'blues', sort: 'recent', record: null });
+    });
+
+    it('recharge depuis le début après un upload réussi', () => {
       component.page.set(3);
+      service.list.mockClear();
       component.onUploaded();
 
-      expect(service.list).toHaveBeenLastCalledWith(1, 5);
+      expect(service.list).toHaveBeenCalledWith(1, 5, all);
+      expect(service.list).toHaveBeenCalledWith(1, 12, { record: 'without' }); // la piste rejoint « À découvrir »
     });
   });
 
@@ -114,8 +154,7 @@ describe('TracksPageComponent', () => {
   describe('suppression', () => {
     beforeEach(create);
 
-    it('appelle DELETE après confirmation, notifie et recharge la liste', () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('appelle DELETE (la carte a déjà confirmé), notifie et retire la carte sans tout recharger', () => {
       service.list.mockClear();
       component.edit(makeTrack('a')); // « Supprimer » est dans le formulaire de modification
 
@@ -124,20 +163,13 @@ describe('TracksPageComponent', () => {
       expect(component.editingId()).toBeNull(); // le formulaire se ferme avec la carte supprimée
       expect(service.remove).toHaveBeenCalledWith('a');
       expect(snackBar.open).toHaveBeenCalledWith('Piste « Piste a » supprimée.', 'Fermer', expect.anything());
-      expect(service.list).toHaveBeenCalledTimes(1);
+      expect(service.list).not.toHaveBeenCalled();
+      expect(component.tracks().map((t) => t.id)).toEqual(['b']);
+      expect(component.total()).toBe(1);
       expect(component.deletingId()).toBeNull();
     });
 
-    it('n’appelle pas le serveur si l’utilisateur annule', () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
-
-      component.remove(makeTrack('a'));
-
-      expect(service.remove).not.toHaveBeenCalled();
-    });
-
     it('bloque les doubles clics pendant une suppression', () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       service.remove.mockReturnValue(new Observable()); // requête qui ne se termine jamais
 
       component.remove(makeTrack('a'));
@@ -148,7 +180,6 @@ describe('TracksPageComponent', () => {
     });
 
     it('gère une piste déjà supprimée (404) : message et resynchronisation', () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       service.remove.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
       service.list.mockClear();
 
@@ -160,22 +191,6 @@ describe('TracksPageComponent', () => {
         expect.anything(),
       );
       expect(service.list).toHaveBeenCalledTimes(1);
-    });
-
-    it('revient à la page précédente si la page courante devient vide', () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
-      component.page.set(2);
-      service.list.mockImplementation((requested) =>
-        requested === 2
-          ? of(page([], { page: 2, total: 5, pages: 1 }))
-          : of(page([makeTrack('a')], { total: 5 })),
-      );
-
-      component.remove(makeTrack('f'));
-
-      expect(service.list).toHaveBeenLastCalledWith(1, 5);
-      expect(component.page()).toBe(1);
-      expect(component.tracks().length).toBe(1);
     });
   });
 
@@ -195,7 +210,22 @@ describe('TracksPageComponent', () => {
 
       expect(service.audio).toHaveBeenCalledWith('a');
       expect(component.audioUrl()).toBe('blob:fake-url');
-      expect(text()).toContain('En cours : Piste a');
+      expect(fixture.nativeElement.querySelector('app-audio-player')).not.toBeNull();
+      expect(text()).toContain('Piste a');
+      expect(text()).toContain('Ma piste'); // sous-titre du lecteur
+    });
+
+    it('ferme le lecteur avec ✕ et libère l’ObjectURL', async () => {
+      service.audio.mockReturnValue(of(new Blob(['x'])));
+      component.play(makeTrack('a'));
+      await fixture.whenStable();
+
+      (fixture.nativeElement.querySelector('button[aria-label="Fermer le lecteur"]') as HTMLButtonElement).click();
+      await fixture.whenStable();
+
+      expect(component.currentTrack()).toBeNull();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fake-url');
+      expect(fixture.nativeElement.querySelector('app-audio-player')).toBeNull();
     });
 
     it('révoque l’ObjectURL finale à la destruction du composant', () => {
@@ -224,6 +254,7 @@ describe('TracksPageComponent', () => {
       const updated = { ...makeTrack('a'), ...changes };
       service.update.mockReturnValue(of(updated));
       component.edit(makeTrack('a'));
+      service.list.mockClear();
 
       component.save({ track: makeTrack('a'), changes });
       await fixture.whenStable();
@@ -232,7 +263,7 @@ describe('TracksPageComponent', () => {
       expect(component.editingId()).toBeNull();
       expect(component.tracks()[0]).toEqual(updated);
       expect(text()).toContain('Shuffle, 80 bpm');
-      expect(service.list).toHaveBeenCalledTimes(1); // pas de rechargement complet
+      expect(service.list).not.toHaveBeenCalled(); // pas de rechargement complet
       expect(snackBar.open).toHaveBeenCalledWith('Piste « Blues lent » modifiée.', 'Fermer', { duration: 5000 });
     });
 
@@ -281,8 +312,62 @@ describe('TracksPageComponent', () => {
       scores.mine.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
       await create();
 
-      expect(fixture.nativeElement.querySelectorAll('app-track-card').length).toBe(2);
+      expect(fixture.nativeElement.querySelectorAll('.tracks app-track-card').length).toBe(2);
       expect(component.error()).toBe('');
+    });
+  });
+
+  describe('pistes de base et file de lecture', () => {
+    beforeEach(async () => {
+      URL.createObjectURL = vi.fn(() => 'blob:fake-url');
+      URL.revokeObjectURL = vi.fn();
+      service.base.mockReturnValue(of([{ ...makeTrack('base1'), base: true }]));
+      service.audio.mockReturnValue(of(new Blob(['x'])));
+      await create();
+    });
+
+    it('affiche le catalogue commun dans la première rangée, sans bouton Modifier', () => {
+      const shelf = fixture.nativeElement.querySelector('.row') as HTMLElement;
+      expect(shelf.textContent).toContain('Piste base1');
+      expect(shelf.querySelector('button[aria-label^="Modifier"]')).toBeNull();
+    });
+
+    it('un clic sur une pochette lance le morceau et l’affiche en plein écran', () => {
+      (fixture.nativeElement.querySelector('.row .cover') as HTMLElement).click();
+      fixture.detectChanges();
+
+      expect(component.currentTrack()?.id).toBe('base1');
+      expect(fixture.nativeElement.querySelector('app-audio-player .full')).not.toBeNull();
+    });
+
+    it('enchaîne précédent / suivant dans la playlist d’où part la lecture', () => {
+      component.play(makeTrack('a'), component.tracks());
+      component.step(1);
+      expect(component.currentTrack()?.id).toBe('b');
+      component.step(1); // fin de la playlist : on reste sur la dernière piste
+      expect(component.currentTrack()?.id).toBe('b');
+      component.step(-1);
+      expect(component.currentTrack()?.id).toBe('a');
+    });
+
+    it('affiche les playlists dans l’ordre, sans les playlists vides', () => {
+      component.bestTracks.set([]);
+      component.neverPlayed.set([makeTrack('c')]);
+      fixture.detectChanges();
+      const titles = [...fixture.nativeElement.querySelectorAll('.shelf h2')].map((h: HTMLElement) => h.textContent?.replace('›', '').trim());
+      expect(titles).toEqual(['Hits du moment', 'À découvrir', 'Mes pistes 2']);
+    });
+
+    it('le cœur ajoute aux préférés, met le profil à jour et alimente la playlist', () => {
+      const user = { favorites: ['a'] } as User;
+      service.setFavorite.mockReturnValue(of(user));
+
+      component.toggleFavorite(makeTrack('a'));
+
+      expect(service.setFavorite).toHaveBeenCalledWith('a', true);
+      expect(auth.currentUser()).toBe(user);
+      expect(component.favoriteTracks().map((t) => t.id)).toEqual(['a']);
+      expect(component.playlists().map((p) => p.id)).toContain('favorites');
     });
   });
 });

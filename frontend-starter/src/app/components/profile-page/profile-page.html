@@ -1,4 +1,5 @@
-<section class="card">
+<!-- Profil en grille bento : l'avatar 3D en grande tuile, l'identité et les chiffres autour. -->
+<section class="card ident">
   <div class="panel-head">
     <h1>Mon profil</h1>
     <button type="button" class="ghost" (click)="load()" [disabled]="loading()">{{ loading() ? 'Chargement…' : 'Actualiser' }}</button>
@@ -19,8 +20,30 @@
 </section>
 
 @if (auth.currentUser(); as user) {
-  <!-- Une seule itération, suivie par l'identifiant : changer d'avatar recrée la scène 3D. -->
-  @for (id of [user.avatar.id]; track id) {
-    <app-avatar-viewer [avatarId]="id" [name]="user.avatar.name" />
-  }
+  <section class="glass tile avatar" aria-label="Mon avatar">
+    <!-- Une seule itération, suivie par l'identifiant : changer d'avatar recrée la scène 3D. -->
+    @for (id of [user.avatar.id]; track id) {
+      <app-avatar-viewer [avatarId]="id" [name]="user.avatar.name" />
+    }
+    <p class="caption"><span class="label">Avatar</span> {{ user.avatar.name }}</p>
+  </section>
+  <div class="glass tile stat" style="--orb: #ffc93c">
+    <span class="label">Points</span><b>{{ user.coins | number }}</b>
+  </div>
+  <div class="glass tile stat" style="--orb: #2ee6ff">
+    <span class="label">Identifiant ami</span><b>#{{ user.tag }}</b>
+  </div>
+  <div class="glass tile stat" style="--orb: #b48cff">
+    <span class="label">Avatars</span><b>{{ user.avatars.length }}</b>
+  </div>
+  <div
+    class="glass tile scene stage-backdrop"
+    [style.--stage]="user.background.stage"
+    [style.--stage-deep]="user.background.deep"
+    [style.--spot-a]="user.background.spotA"
+    [style.--spot-b]="user.background.spotB"
+    [style.--stage-image]="user.background.image ? 'url(' + user.background.image + ')' : null"
+  >
+    <span class="label">Décor équipé</span><b>{{ user.background.name }}</b>
+  </div>
 }

@@ -1,11 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../shared/services/auth.service';
 import { AvatarViewerComponent } from '../avatar-viewer/avatar-viewer';
 
 @Component({
-  imports: [DatePipe, ReactiveFormsModule, AvatarViewerComponent],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, AvatarViewerComponent],
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.css',
 })

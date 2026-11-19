@@ -1,15 +1,4 @@
-<section class="library">
-  @if (currentTrack(); as track) {
-    <div class="transport" role="region" aria-label="Lecteur audio" aria-live="polite">
-      <p class="now">En cours : <b>{{ track.title }}</b></p>
-      <audio
-        [src]="audioUrl()"
-        controls
-        autoplay
-        (error)="onAudioError()"
-      ></audio>
-    </div>
-  }
+<section class="library" [class.with-player]="currentTrack()">
   <header class="artists-hero">
     <!-- Décor : masqué aux lecteurs d'écran. -->
     <ul class="artists" aria-hidden="true">
@@ -23,68 +12,146 @@
         </li>
       }
     </ul>
-    <h1>Backing tracks</h1>
-    <p>Importez vos morceaux de travail et jouez par-dessus.</p>
+    <!-- En bas du bandeau, sans fond : titre à gauche, accroche à droite. -->
+    <div class="hero-bar">
+      <h1>Backing tracks</h1>
+      <p>Importez vos morceaux de travail et jouez par-dessus.</p>
+    </div>
   </header>
 
-  <div class="layout">
-    <app-track-upload class="upload" (uploaded)="onUploaded()" />
+  @if (audioError()) {
+    <p class="error" role="alert">{{ audioError() }}</p>
+  }
 
-    <section class="tracklist" aria-labelledby="tracks-title">
-      <div class="tracklist-head">
-        <h2 id="tracks-title">Mes pistes <span class="count">{{ total() }}</span></h2>
-        <button type="button" class="ghost" (click)="load()" [disabled]="loading()">Actualiser</button>
-      </div>
-
-      @if (audioError()) {
-        <p class="error" role="alert">{{ audioError() }}</p>
-      }
-      @if (error()) {
-        <p class="error" role="alert">{{ error() }}</p>
-      }
-      @if (loading()) {
-        <div class="skeleton-list" role="status" aria-busy="true">
-          <span class="visually-hidden">Chargement…</span>
-          <span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span>
-        </div>
-      }
-
-      <ul class="tracks" [attr.aria-busy]="loading()">
-        @for (track of tracks(); track track.id) {
-          <li>
-            <app-track-card
-              [track]="track"
-              [current]="currentTrack()?.id === track.id"
-              [loadingAudio]="loadingAudioId() === track.id"
-              [deleting]="deletingId() === track.id"
-              [disabled]="deletingId() !== null"
-              [editing]="editingId() === track.id"
-              [saving]="savingId() === track.id"
-              [best]="bestByTrack()[track.id] ?? null"
-              (play)="play($event)"
-              (remove)="remove($event)"
-              (edit)="edit($event)"
-              (cancelEdit)="cancelEdit()"
-              (save)="save($event)"
-            />
-          </li>
-        } @empty {
-          @if (!loading() && !error()) {
-            <li class="empty">Aucune piste pour l’instant. Importez un fichier MP3, WAV, OGG ou M4A pour commencer.</li>
+  <!-- Playlists défilantes (catalogue, préférés, scores, jamais joués…), flèches ‹ › sur les bords. -->
+  @for (playlist of playlists(); track playlist.id) {
+    <section class="shelf" [attr.aria-labelledby]="'playlist-' + playlist.id">
+      <h2 [id]="'playlist-' + playlist.id">{{ playlist.title }} <span class="chevron" aria-hidden="true">›</span></h2>
+      <div #shelf class="carousel at-start">
+        <button type="button" class="nav prev" (click)="scrollRow(shelf, -1)" aria-label="Faire défiler vers la gauche">‹</button>
+        <button type="button" class="nav next" (click)="scrollRow(shelf, 1)" aria-label="Faire défiler vers la droite">›</button>
+        <ul class="row" (scroll)="updateEdges(shelf)">
+          @for (track of playlist.tracks; track track.id) {
+            <li>
+              <app-track-card
+                [track]="track"
+                [current]="currentTrack()?.id === track.id"
+                [loadingAudio]="loadingAudioId() === track.id"
+                [best]="bestByTrack()[track.id] ?? null"
+                [editable]="false"
+                [favorite]="favoriteIds().has(track.id)"
+                [coverUrl]="coverUrls()[track.id] ?? null"
+                (play)="play($event, playlist.tracks)"
+                (open)="open($event, playlist.tracks)"
+                (favoriteToggle)="toggleFavorite($event)"
+              />
+            </li>
           }
-        }
-      </ul>
-
-      <mat-paginator
-        [length]="total()"
-        [pageIndex]="page() - 1"
-        [pageSize]="limit()"
-        [pageSizeOptions]="[5, 10, 20]"
-        [disabled]="loading()"
-        (page)="onPage($event)"
-        aria-label="Pagination des pistes"
-      />
+        </ul>
+      </div>
     </section>
-  </div>
+  }
 
+  <!-- Toute ma bibliothèque : recherche, tri, filtre et grille de pochettes. -->
+  <section class="shelf" aria-labelledby="tracks-title">
+    <div class="shelf-head">
+      <h2 id="tracks-title">Mes pistes <span class="count">{{ total() }}</span></h2>
+      <button type="button" class="import" (click)="openImport()">+ Importer</button>
+      <button type="button" class="ghost" (click)="load()" [disabled]="loading()">Actualiser</button>
+    </div>
+
+    <div class="toolbar">
+      <label class="search">
+        <span class="visually-hidden">Rechercher une piste par titre</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        <input type="search" placeholder="Rechercher un titre…" (input)="search($any($event.target).value)" />
+      </label>
+      <label class="sort">
+        <span>Trier</span>
+        <select [value]="query().sort" (change)="setQuery({ sort: $any($event.target).value })">
+          <option value="recent">Plus récentes</option>
+          <option value="title">Titre (A → Z)</option>
+          <option value="record">Meilleur record</option>
+        </select>
+      </label>
+      <div class="chips" role="group" aria-label="Filtrer par record">
+        <button type="button" class="chip" [class.on]="!query().record" [attr.aria-pressed]="!query().record" (click)="setQuery({ record: null })">Toutes</button>
+        <button type="button" class="chip" [class.on]="query().record === 'with'" [attr.aria-pressed]="query().record === 'with'" (click)="setQuery({ record: 'with' })">Avec record</button>
+        <button type="button" class="chip" [class.on]="query().record === 'without'" [attr.aria-pressed]="query().record === 'without'" (click)="setQuery({ record: 'without' })">Sans record</button>
+      </div>
+    </div>
+
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+
+    <ul class="tracks" [attr.aria-busy]="loading()">
+      @for (track of tracks(); track track.id) {
+        <li>
+          <app-track-card
+            [track]="track"
+            [current]="currentTrack()?.id === track.id"
+            [loadingAudio]="loadingAudioId() === track.id"
+            [deleting]="deletingId() === track.id"
+            [disabled]="deletingId() !== null"
+            [editing]="editingId() === track.id"
+            [saving]="savingId() === track.id"
+            [best]="bestByTrack()[track.id] ?? null"
+            [coverUrl]="coverUrls()[track.id] ?? null"
+            [favorite]="favoriteIds().has(track.id)"
+            (play)="play($event, tracks())"
+            (open)="open($event, tracks())"
+            (favoriteToggle)="toggleFavorite($event)"
+            (coverChange)="changeCover($event)"
+            (remove)="remove($event)"
+            (edit)="edit($event)"
+            (cancelEdit)="cancelEdit()"
+            (save)="save($event)"
+          />
+        </li>
+      } @empty {
+        @if (!loading() && !error()) {
+          <li class="empty">
+            {{ query().q || query().record ? 'Aucune piste ne correspond à cette recherche.' : 'Aucune piste pour l’instant. Importez un fichier MP3, WAV, OGG ou M4A pour commencer.' }}
+          </li>
+        }
+      }
+    </ul>
+
+    @if (loading()) {
+      <div class="skeleton-list" role="status" aria-busy="true">
+        <span class="visually-hidden">Chargement…</span>
+        <span class="skeleton"></span><span class="skeleton"></span>
+      </div>
+    }
+
+    @if (hasMore() && !loading()) {
+      <button type="button" class="ghost more" (click)="loadMore()">
+        Voir plus <span class="count">{{ total() - tracks().length }}</span>
+      </button>
+    }
+  </section>
+
+  <!-- Import dans un panneau de verre modal (Échap le ferme). -->
+  <dialog #importDialog class="import-panel" aria-label="Importer des pistes">
+    <button type="button" class="close" (click)="closeImport()" aria-label="Fermer l’import">✕</button>
+    <app-track-upload (uploaded)="onUploaded()" />
+  </dialog>
+
+  @if (currentTrack(); as track) {
+    <app-audio-player
+      [src]="audioUrl()"
+      [title]="track.title"
+      [subtitle]="nowSubtitle()"
+      [hue]="trackHue(track.id)"
+      [cover]="coverUrls()[track.id] ?? null"
+      [hasPrevious]="queueIndex() > 0"
+      [hasNext]="queueIndex() >= 0 && queueIndex() < queue().length - 1"
+      (previous)="step(-1)"
+      (next)="step(1)"
+      (failed)="onAudioError()"
+      [(expanded)]="playerExpanded"
+      (closed)="stopPlayer()"
+    />
+  }
 </section>

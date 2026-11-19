@@ -26,6 +26,8 @@ const schema = new mongoose.Schema(
     avatar: { type: String, default: STARTER_AVATAR },
     // Fonds de scène possédés et fond affiché derrière la piste pendant une partie.
     backgrounds: { type: [String], default: () => [STARTER_BACKGROUND] },
+    // Playlist « Morceaux préférés » : pistes marquées d'un cœur (les siennes ou celles du catalogue).
+    favorites: { type: [mongoose.Schema.Types.ObjectId], ref: "Track", default: [] },
     background: { type: String, default: STARTER_BACKGROUND },
     // Identifiant à partager pour être ajouté en ami (« #K7P2 »), attribué à la création.
     tag: { type: String, unique: true, sparse: true },
@@ -89,6 +91,7 @@ schema.methods.toPublic = function () {
     avatars: this.avatars?.length ? this.avatars : [STARTER_AVATAR],
     background: backgroundById(this.background),
     backgrounds: this.backgrounds?.length ? this.backgrounds : [STARTER_BACKGROUND],
+    favorites: (this.favorites ?? []).map(String),
   };
 };
 

@@ -1,18 +1,76 @@
 <article class="card">
   <h2>Importer</h2>
-  <label>Titre<input [formControl]="title" placeholder="Nom du fichier par défaut" /></label>
-  <label>Fichier audio
-    <input #fileInput type="file" accept=".mp3,.wav,.ogg,.m4a,audio/*" aria-describedby="file-hint" (change)="choose($event)" [disabled]="uploading()" />
-    <small id="file-hint" class="hint">MP3, WAV, OGG ou M4A, 25 Mo maximum.</small>
+
+  <!-- Zone de dépôt : le <label> ouvre aussi le sélecteur de fichiers au clic ou au clavier. -->
+  <label
+    class="drop"
+    [class.over]="dragging()"
+    [class.disabled]="uploading()"
+    (dragover)="dragOver($event)"
+    (dragleave)="dragging.set(false)"
+    (drop)="drop($event)"
+  >
+    <input
+      #fileInput
+      class="visually-hidden"
+      type="file"
+      multiple
+      accept=".mp3,.wav,.ogg,.m4a,audio/*"
+      aria-describedby="file-hint"
+      (change)="choose($event)"
+      [disabled]="uploading()"
+    />
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4.5 4.5M12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>
+    <span class="drop-title">Déposez vos fichiers ici</span>
+    <span class="drop-sub">ou <u>parcourez</u> votre ordinateur</span>
+    <small id="file-hint" class="hint">MP3, WAV, OGG ou M4A, 25 Mo maximum par fichier.</small>
   </label>
-  <button type="button" class="submit" (click)="upload()" [disabled]="!file() || uploading()">
-    {{ uploading() ? 'Envoi…' : 'Envoyer' }}
+
+  @if (files().length) {
+    <ul class="files" aria-label="Fichiers choisis">
+      @for (file of files(); track file; let i = $index) {
+        <li [class.active]="uploading() && current() === i + 1" [class.done]="uploading() && current() > i + 1">
+          <span class="name">{{ file.name }}</span>
+          <span class="size">{{ file.size | fileSize }}</span>
+          @if (!uploading()) {
+            <button type="button" class="remove" (click)="discard(file)" [attr.aria-label]="'Retirer ' + file.name">✕</button>
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (files().length <= 1) {
+    <label>Titre<input [formControl]="title" placeholder="Nom du fichier par défaut" /></label>
+    <!-- Pochette d'album facultative : aperçu carré, comme dans la bibliothèque. -->
+    <div class="art-field">
+      <span class="art-preview" [style.background-image]="coverPreview() ? 'url(' + coverPreview() + ')' : null" aria-hidden="true">
+        @if (!coverPreview()) { ♪ }
+      </span>
+      <div class="art-actions">
+        <span class="art-label">Pochette d’album <small>(facultatif)</small></span>
+        <label class="ghost-button" [class.disabled]="uploading()">
+          {{ cover() ? 'Changer l’image' : 'Choisir une image' }}
+          <input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" (change)="chooseCover($event)" [disabled]="uploading()" aria-label="Pochette d’album" />
+        </label>
+        @if (cover() && !uploading()) {
+          <button type="button" class="ghost" (click)="setCover(null)">Retirer</button>
+        }
+      </div>
+    </div>
+  }
+
+  <button type="button" class="submit" (click)="upload()" [disabled]="!files().length || uploading()">
+    {{ uploading() ? 'Envoi…' : files().length > 1 ? 'Envoyer les ' + files().length + ' fichiers' : 'Envoyer' }}
   </button>
 
   @if (uploading()) {
     <div class="progress" role="status">
       <progress max="100" [value]="percent()" aria-label="Progression de l’envoi"></progress>
-      <span>{{ processing() ? 'Traitement par le serveur…' : percent() + ' %' }}</span>
+      <span>
+        @if (files().length > 1) { {{ current() }}/{{ files().length }} · }
+        {{ processing() ? 'Traitement par le serveur…' : percent() + ' %' }}
+      </span>
     </div>
   }
   @if (successTitle()) {

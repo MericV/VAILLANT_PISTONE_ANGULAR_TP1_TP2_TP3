@@ -11,11 +11,21 @@ const frameUrl = (i: number) => `home-guitar/f${String(i + 1).padStart(3, '0')}.
  */
 @Component({
   imports: [RouterLink],
+  host: { '(pointermove)': 'light($event)' },
   templateUrl: './home-page.html',
   styleUrl: './home-page.css',
 })
 export class HomePageComponent {
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('stage');
+
+  /** Place le halo coloré de la tuile (ou du panneau) survolé sous la souris. */
+  protected light(event: PointerEvent): void {
+    const tile = (event.target as Element).closest<HTMLElement>('.tile, .copy');
+    if (!tile) return;
+    const box = tile.getBoundingClientRect();
+    tile.style.setProperty('--mx', `${event.clientX - box.left}px`);
+    tile.style.setProperty('--my', `${event.clientY - box.top}px`);
+  }
 
   constructor() {
     const destroyRef = inject(DestroyRef);

@@ -1,6 +1,95 @@
-<article class="track" [class.current]="current()" [class.editing]="editing()" [attr.aria-busy]="deleting() || loadingAudio() || saving()">
+<article class="track" [class.current]="current()" [attr.aria-busy]="deleting() || loadingAudio() || saving()" [style.--hue]="hue()">
+  <!-- Pochette générée (deux orbes de couleur tirées de l'identifiant), actions au survol ; un clic l'ouvre en grand. -->
+  <div class="cover" (click)="openFrom($event)" [class.has-art]="coverUrl()" [style.background-image]="coverUrl() ? 'url(' + coverUrl() + ')' : null">
+    @if (current()) {
+      <span class="playing">En lecture</span>
+    }
+    @if (best(); as record) {
+      <span class="badge" [class.perfect]="record.stars === 5">{{ record.stars === 5 ? '5★ parfait' : record.stars + '★' }}</span>
+    }
+    <!-- Cœur : toujours visible quand le morceau est un préféré, sinon au survol. -->
+    <button
+      type="button"
+      class="heart"
+      [class.on]="favorite()"
+      (click)="favoriteToggle.emit(track())"
+      [attr.aria-pressed]="favorite()"
+      [attr.aria-label]="(favorite() ? 'Retirer des préférés : ' : 'Ajouter aux préférés : ') + track().title"
+    >
+      {{ favorite() ? '♥' : '♡' }}
+    </button>
+    <!-- Lecture : pastille de verre au centre de la pochette, visible au survol. -->
+    <button
+      type="button"
+      class="play"
+      (click)="play.emit(track())"
+      [disabled]="busy()"
+      [attr.aria-label]="'Lire ' + track().title"
+    >
+      @if (loadingAudio()) {
+        …
+      } @else {
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" /></svg>
+      }
+    </button>
+    <div class="hover-actions">
+      <a class="game-link" [routerLink]="['/game', track().id]" [state]="{ title: track().title }" [attr.aria-label]="'Jouer à ' + track().title">Jouer</a>
+      @if (!track().base && editable()) {
+        <button
+          type="button"
+          class="more"
+          (click)="startEdit()"
+          [disabled]="busy()"
+          [attr.aria-label]="'Modifier ' + track().title"
+        >
+          •••
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Sous la pochette, comme Apple Music : titre, puis artiste (pistes de base) ou détails. -->
+    <div class="identity">
+      <h3>{{ track().title }}</h3>
+      <p class="details">
+        @if (best(); as record) {
+          <span class="best">
+            <span class="stars" aria-hidden="true">@for (won of bestStars(); track $index) {<span [class.won]="won">★</span>}</span>
+            {{ record.score | number }}
+            <span class="visually-hidden">points, {{ record.stars }} étoile(s) sur 5</span>
+          </span>
+        }
+        <span>{{ track().base ? track().description || duration() : duration() + ' · ' + format() + ' · ' + (track().size | fileSize) }}</span>
+      </p>
+      @if (track().description && !track().base) {
+        <p class="description">{{ track().description }}</p>
+      }
+    </div>
+</article>
+
+<!-- Modification : panneau de verre modal, ouvert et fermé par la page (input `editing`). -->
+<dialog #dialog class="edit-panel" (cancel)="$event.preventDefault(); cancelEdit.emit()">
   @if (editing()) {
     <form class="edit" [formGroup]="form" (ngSubmit)="submit()" [attr.aria-label]="'Modifier ' + track().title">
+      <h2>Modifier la piste</h2>
+      <p class="added">Ajoutée le <time [attr.datetime]="track().createdAt">{{ track().createdAt | date: 'dd/MM/yyyy' }}</time></p>
+      <!-- Pochette d'album : envoyée tout de suite, indépendamment du titre et de la description. -->
+      <div class="art-field">
+        <span class="art-preview" [class.has-art]="coverUrl()" [style.--hue]="hue()" [style.background-image]="coverUrl() ? 'url(' + coverUrl() + ')' : null" aria-hidden="true"></span>
+        <div class="art-actions">
+          <span class="art-label">Pochette d’album</span>
+          <label class="ghost-button">
+            {{ track().cover ? 'Changer l’image' : 'Ajouter une image' }}
+            <input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" (change)="chooseCover($event)" [attr.aria-label]="'Pochette de ' + track().title" />
+          </label>
+          @if (track().cover) {
+            <button type="button" class="ghost" (click)="coverChange.emit({ track: track(), file: null })">Retirer</button>
+          }
+          @if (coverError()) {
+            <small class="error" role="alert">{{ coverError() }}</small>
+          }
+        </div>
+      </div>
       <!-- Un fieldset désactivé désactive d'un coup tous ses champs et boutons pendant l'envoi. -->
       <fieldset [disabled]="saving()">
         <label>Titre
@@ -15,68 +104,18 @@
         <div class="edit-actions">
           <button type="submit">{{ saving() ? 'Enregistrement…' : 'Enregistrer' }}</button>
           <button type="button" class="ghost" (click)="cancelEdit.emit()">Annuler</button>
-          <!-- Action rare et destructrice : rangée dans le formulaire plutôt que sur chaque carte. -->
-          <button
-            type="button"
-            class="ghost remove"
-            (click)="remove.emit(track())"
-            [disabled]="deleting()"
-            [attr.aria-label]="'Supprimer ' + track().title"
-          >
-            {{ deleting() ? 'Suppression…' : 'Supprimer' }}
-          </button>
+          <!-- Suppression en deux temps : un premier clic demande confirmation. -->
+          @if (confirming()) {
+            <span class="confirm" role="alert">Supprimer définitivement ?</span>
+            <button type="button" class="danger" (click)="remove.emit(track())" [disabled]="deleting()" [attr.aria-label]="'Confirmer la suppression de ' + track().title">
+              {{ deleting() ? 'Suppression…' : 'Oui, supprimer' }}
+            </button>
+            <button type="button" class="ghost" (click)="confirming.set(false)">Non</button>
+          } @else {
+            <button type="button" class="ghost remove" (click)="confirming.set(true)" [attr.aria-label]="'Supprimer ' + track().title">Supprimer</button>
+          }
         </div>
       </fieldset>
     </form>
-  } @else {
-    <button
-      type="button"
-      class="play"
-      (click)="play.emit(track())"
-      [disabled]="busy()"
-      [attr.aria-label]="'Lire ' + track().title"
-    >
-      {{ loadingAudio() ? '…' : '▶' }}
-    </button>
-
-    <div class="identity">
-      <h3>{{ track().title }}</h3>
-      @if (track().description) {
-        <p class="description">{{ track().description }}</p>
-      }
-      @if (current()) {
-        <p class="playing">En lecture</p>
-      }
-    </div>
-
-    <dl class="meta">
-      <div><dt>Format</dt><dd>{{ format() }}</dd></div>
-      <div><dt>Taille</dt><dd>{{ track().size | fileSize }}</dd></div>
-      @if (best(); as record) {
-      <div class="best">
-        <dt>Record</dt>
-        <dd>
-          <span class="stars" aria-hidden="true">@for (won of bestStars(); track $index) {<span [class.won]="won">★</span>}</span>
-          {{ record.score | number }}
-          <span class="visually-hidden">points, {{ record.stars }} étoile(s) sur 5</span>
-        </dd>
-      </div>
-    }
-    <div><dt>Ajoutée le</dt><dd><time [attr.datetime]="track().createdAt">{{ track().createdAt | date: 'dd/MM/yyyy' }}</time></dd></div>
-    </dl>
-
-    <a class="game-link" [routerLink]="['/game', track().id]" [state]="{ title: track().title }" [attr.aria-label]="'Jouer à ' + track().title">Jouer</a>
-
-    <div class="secondary">
-      <button
-        type="button"
-        class="ghost"
-        (click)="startEdit()"
-        [disabled]="busy()"
-        [attr.aria-label]="'Modifier ' + track().title"
-      >
-        Modifier
-      </button>
-    </div>
   }
-</article>
+</dialog>

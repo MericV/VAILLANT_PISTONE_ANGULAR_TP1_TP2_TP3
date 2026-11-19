@@ -11,9 +11,15 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | POST | `/auth/login` | `{email,password}` | `200 {token,user}` |
 | GET | `/users/me` | JWT | `200 User` |
 | PUT | `/users/me` | `{name}` + JWT | `200 User` |
-| GET | `/tracks?page=1&limit=5` | JWT | `Page<Track>` |
-| POST | `/tracks` | multipart : `audio`, `title` | `201 Track` |
+| GET | `/tracks?page=1&limit=5` (facultatifs : `q`, `sort`, `record`) | JWT | `Page<Track>` |
+| GET | `/tracks/base` | JWT | `200 Track[]` : catalogue commun des pistes de base (lecture seule) |
+| GET | `/tracks/favorites` | JWT | `200 Track[]` : mes morceaux préférés, le dernier ajouté en tête |
+| PUT / DELETE | `/tracks/:id/favorite` | JWT | `200 User` (profil à jour) ; `404` piste inconnue ou inaccessible |
+| POST | `/tracks` | multipart : `audio`, `title`, `duration` (facultatif, secondes), `cover` (facultatif, pochette) | `201 Track` |
 | GET | `/tracks/:id/audio` | JWT | flux audio |
+| GET | `/tracks/:id/cover` | JWT | image de la pochette ; `404` si la piste n'en a pas |
+| PUT | `/tracks/:id/cover` | multipart : `cover` + JWT (propriétaire) | `200 Track` ; `400` image refusée |
+| DELETE | `/tracks/:id/cover` | JWT (propriétaire) | `200 Track` (retour à la pochette générée) |
 | PATCH | `/tracks/:id` | `{title?, description?}` + JWT | `200 Track` |
 | DELETE | `/tracks/:id` | JWT | `204` (bonus) ; supprime aussi les records du morceau |
 | POST | `/scores` | `{trackId, difficulty, instrument?, score, stars, accuracy, maxCombo}` + JWT | `201 {best: true, record}` ou `200 {best: false, record}` |
@@ -38,9 +44,9 @@ Le contrat HTTP ne dépend pas du choix de persistance : le backend fourni utili
 | POST | `/groups/:id/live/score` | `{score, combo, done}` + JWT | `204` ; `400`, `409` hors partie |
 | POST | `/groups/:id/live/reset` | JWT (hôte) | `204` ; `403`, `409` |
 
-`Track` contient `id`, `ownerId`, `title`, `description` (chaîne vide par défaut), `originalName`, `mimeType`, `size` et `createdAt`. `PATCH` accepte un titre non vide (120 caractères max) et une description (500 max) ; au moins un des deux est requis.
+`Track` contient `id`, `ownerId` (`null` pour une piste de base), `base` (vrai pour une piste du catalogue commun : tout joueur connecté peut l'écouter et y jouer, personne ne peut la modifier ni la supprimer), `title`, `description` (chaîne vide par défaut), `originalName`, `mimeType`, `size`, `cover` (vrai si la piste a une pochette d'album : image JPEG, PNG ou WebP de 3 Mo au plus, lue avec les mêmes droits que l'audio), `duration` (secondes, `null` si inconnue : pistes importées avant ce champ) et `createdAt`. La liste accepte `q` (titre contenant ce texte, sans tenir compte de la casse), `sort` (`recent` par défaut, `title`, `record` : meilleur score du joueur d'abord) et `record` (`with` ou `without` : pistes avec ou sans record du joueur) ; une valeur inconnue est ignorée. `PATCH` accepte un titre non vide (120 caractères max) et une description (500 max) ; au moins un des deux est requis.
 
-`User` contient `id`, `name`, `email`, `tag` (identifiant d'ami unique, 4 caractères sans 0/O/1/I, affiché `#K7P2`), `createdAt`, `coins` (points), `avatar` (objet `Avatar` affiché), `avatars` (identifiants possédés), `background` (objet `Background` affiché derrière la piste) et `backgrounds` (identifiants possédés). `Avatar` contient `id`, `name`, `emoji`, `color` et `price`. `Background` contient `id`, `name`, `image` (`null`, ou chemin de l'image de décor servie par le frontend, ex. `backgrounds/rock.webp` ; le frontend charge aussi ses calques de lumières `-base`, `-a` et `-b` à côté), `stage`, `deep`, `spotA`, `spotB` (couleurs hexadécimales, décor pendant le chargement) et `price`.
+`User` contient `id`, `name`, `email`, `tag` (identifiant d'ami unique, 4 caractères sans 0/O/1/I, affiché `#K7P2`), `createdAt`, `coins` (points), `avatar` (objet `Avatar` affiché), `avatars` (identifiants possédés), `background` (objet `Background` affiché derrière la piste) `backgrounds` (identifiants possédés) et `favorites` (identifiants des morceaux préférés). `Avatar` contient `id`, `name`, `emoji`, `color` et `price`. `Background` contient `id`, `name`, `image` (`null`, ou chemin de l'image de décor servie par le frontend, ex. `backgrounds/rock.webp` ; le frontend charge aussi ses calques de lumières `-base`, `-a` et `-b` à côté), `stage`, `deep`, `spotA`, `spotB` (couleurs hexadécimales, décor pendant le chargement) et `price`.
 
 `Friend` contient `id`, `name`, `tag` et `avatar`. L'amitié est réciproque : `POST /friends` (le `#` initial est facultatif) l'ajoute des deux côtés, `DELETE` la retire des deux côtés.
 

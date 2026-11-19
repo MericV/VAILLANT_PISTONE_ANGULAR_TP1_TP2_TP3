@@ -1,0 +1,104 @@
+<!-- Un seul <audio>, partagé par le mini-lecteur et la vue plein écran : la lecture continue quand on bascule. -->
+<audio
+  #audio
+  [src]="src()"
+  autoplay
+  (play)="onPlay()"
+  (pause)="onPause()"
+  (ended)="onEnded()"
+  (timeupdate)="onTime()"
+  (loadedmetadata)="onTime()"
+  (error)="failed.emit()"
+></audio>
+
+<!-- Précédent / lecture / suivant : mêmes boutons dans les deux vues. -->
+<ng-template #transport>
+  <button type="button" class="icon" (click)="previous.emit()" [disabled]="!hasPrevious()" aria-label="Morceau précédent">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6v12L3 12zM20 6v12l-8-6z" /></svg>
+  </button>
+  <button type="button" class="icon toggle" (click)="toggle()" [attr.aria-label]="paused() ? 'Lecture' : 'Pause'">
+    @if (paused()) {
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" /></svg>
+    } @else {
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z" /></svg>
+    }
+  </button>
+  <button type="button" class="icon" (click)="next.emit()" [disabled]="!hasNext()" aria-label="Morceau suivant">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12l8-6zM13 6v12l8-6z" /></svg>
+  </button>
+</ng-template>
+
+<ng-template #volumeControl>
+  <label class="volume">
+    <span class="visually-hidden">Volume</span>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" /></svg>
+    <input type="range" min="0" max="1" step="0.05" [value]="volume()" (input)="setVolume($event)" [style.--fill.%]="volume() * 100" />
+  </label>
+</ng-template>
+
+@if (expanded()) {
+  <!-- Plein écran façon Apple Music : fond tiré de la pochette (floutée), grande pochette, commandes dessous. -->
+  <div class="full" role="dialog" aria-modal="true" [attr.aria-label]="'En lecture : ' + title()" [style.--hue]="hue()">
+    <div class="backdrop" [class.has-art]="cover()" [style.background-image]="cover() ? 'url(' + cover() + ')' : null" aria-hidden="true"></div>
+    <button type="button" class="icon collapse" (click)="expanded.set(false)" aria-label="Réduire le lecteur">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7" /></svg>
+    </button>
+    <div class="stage">
+      <span class="art" [class.has-art]="cover()" [class.playing]="!paused()" [style.background-image]="cover() ? 'url(' + cover() + ')' : null" aria-hidden="true"></span>
+      <div class="meta">
+        <p class="title" aria-live="polite">{{ title() }}</p>
+        <p class="subtitle">{{ subtitle() }}</p>
+      </div>
+      <input
+        class="seek-big"
+        type="range"
+        min="0"
+        [max]="duration() || 0"
+        step="0.1"
+        [value]="time()"
+        (input)="seek($event)"
+        [style.--fill.%]="duration() ? (time() / duration()) * 100 : 0"
+        aria-label="Position dans le morceau"
+      />
+      <div class="times"><span>{{ clock(time()) }}</span><span>-{{ clock(duration() - time()) }}</span></div>
+      <div class="controls big"><ng-container [ngTemplateOutlet]="transport" /></div>
+      <ng-container [ngTemplateOutlet]="volumeControl" />
+    </div>
+  </div>
+} @else {
+  <div class="player" role="region" aria-label="Lecteur audio">
+    <div class="controls"><ng-container [ngTemplateOutlet]="transport" /></div>
+
+    <!-- Centre : vignette, titre et sous-titre, fine barre de progression en bas. Un clic ouvre le plein écran. -->
+    <div class="center">
+      <button type="button" class="open" (click)="expanded.set(true)" aria-label="Agrandir le lecteur">
+        <span class="thumb" [class.has-art]="cover()" [style.--hue]="hue()" [style.background-image]="cover() ? 'url(' + cover() + ')' : null" aria-hidden="true"></span>
+        <span class="now">
+          <span class="title" aria-live="polite">{{ title() }}</span>
+          <span class="subtitle">{{ subtitle() }} <span class="clock">{{ clock(time()) }} / {{ clock(duration()) }}</span></span>
+        </span>
+      </button>
+      <!-- Égaliseur décoratif : une barre par bande de fréquences. -->
+      <div class="eq" aria-hidden="true">
+        @for (bar of bars(); track $index) {
+          <i [style.transform]="'scaleY(' + bar + ')'"></i>
+        }
+      </div>
+      <input
+        class="seek"
+        type="range"
+        min="0"
+        [max]="duration() || 0"
+        step="0.1"
+        [value]="time()"
+        (input)="seek($event)"
+        [style.--fill.%]="duration() ? (time() / duration()) * 100 : 0"
+        aria-label="Position dans le morceau"
+      />
+    </div>
+
+    <ng-container [ngTemplateOutlet]="volumeControl" />
+
+    <button type="button" class="icon close" (click)="closed.emit()" aria-label="Fermer le lecteur">✕</button>
+  </div>
+}

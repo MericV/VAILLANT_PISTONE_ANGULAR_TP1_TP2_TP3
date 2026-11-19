@@ -35,6 +35,11 @@ const SECRET = process.env.JWT_SECRET || "tp1-development-secret";
 // sont refusés par Multer avant d'être écrits sur le disque.
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
+/** Pochettes d'album : images JPEG, PNG ou WebP de 3 Mo au plus. */
+const COVER_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_COVER_SIZE = 3 * 1024 * 1024;
+const COVER_REFUSED = "Pochette refusée : image JPEG, PNG ou WebP de 3 Mo au plus";
+
 // Les types MIME autorisés correspondent aux formats demandés dans le sujet.
 const allowed = new Set([
   "audio/mpeg",
@@ -112,6 +117,10 @@ const upload = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_request, file, callback) => {
+    // Champ `cover` (pochette d'album) : une image JPEG, PNG ou WebP.
+    if (file.fieldname === "cover") {
+      return COVER_TYPES.has(file.mimetype) ? callback(null, true) : callback(new Error(COVER_REFUSED));
+    }
     // Seuls les types MIME audio demandés dans le sujet sont acceptés.
     if (allowed.has(file.mimetype)) {
       console.log(`[multer] Type accepté : ${file.mimetype}`);
@@ -134,8 +143,102 @@ const upload = multer({
  * avec lui : c'est ce qui permet de jouer ensemble sur le morceau d'un membre.
  */
 async function canPlay(userId, ownerId) {
+  if (!ownerId) return true; // piste de base : catalogue commun, ouvert à tous les joueurs
   if (String(ownerId) === userId) return true;
   return Boolean(await Group.exists({ members: { $all: [userId, ownerId] } }));
+}
+
+/**
+ * Piste lue avec `.lean()` → objet public : `_id` devient `id`, la durée vaut `null` si inconnue,
+ * et le nom de stockage de la pochette n'est jamais exposé (seulement `cover: true/false`).
+ */
+function publicTrack(track) {
+  const { coverName, ...rest } = track;
+  return { ...rest, id: String(track._id), _id: undefined, duration: track.duration ?? null, cover: Boolean(coverName) };
+}
+
+/** Supprime un fichier des uploads sans faire échouer la requête (fichier orphelin logué). */
+async function removeUpload(name) {
+  if (!name) return;
+  try {
+    await fsPromises.unlink(path.join(UPLOADS, name));
+  } catch (error) {
+    console.error(`[tracks] Fichier non supprimé : ${name}`, error);
+  }
+}
+
+/** Durée envoyée par le navigateur à l'import : un nombre de secondes plausible, sinon ignorée. */
+function trackDuration(value) {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 && seconds <= 7200 ? Math.round(seconds) : undefined;
+}
+
+/**
+ * Lit les paramètres de `GET /api/tracks` ; toute valeur inconnue retombe sur le défaut.
+ * `q` est échappé : il sert de motif d'expression régulière dans MongoDB (pas d'injection de motif).
+ */
+export function trackListOptions(query) {
+  const page = Math.max(1, Number(query.page) || 1);
+  const limit = Math.min(20, Math.max(1, Number(query.limit) || 5));
+  const q = String(query.q ?? "").trim().slice(0, 120).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const sort = ["title", "record"].includes(query.sort) ? query.sort : "recent";
+  const record = ["with", "without"].includes(query.record) ? query.record : null;
+  return { page, limit, q, sort, record };
+}
+
+/** Dossier des pistes de base : chaque fichier audio déposé ici rejoint le catalogue commun. */
+export const BASE_TRACKS = path.resolve("pistes-de-base");
+const BASE_TYPES = { ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg", ".m4a": "audio/mp4" };
+
+/** « blues-en-mi_90bpm.mp3 » → « Blues en mi 90bpm » : titre par défaut tiré du nom du fichier. */
+export function titleFromFile(file) {
+  const name = path.parse(file).name.replace(/[-_]+/g, " ").trim();
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/**
+ * Synchronise le catalogue commun avec le dossier pistes-de-base/ (appelé au démarrage) :
+ * chaque fichier audio est copié dans les uploads et enregistré comme piste de base, sans
+ * propriétaire. `catalogue.json` (facultatif) précise, par nom de fichier, `title`,
+ * `description` et `duration` (secondes). Un fichier retiré du dossier quitte le catalogue.
+ */
+export async function seedBaseTracks(dir = BASE_TRACKS) {
+  const files = await fsPromises.readdir(dir).catch(() => []);
+  const meta = await fsPromises
+    .readFile(path.join(dir, "catalogue.json"), "utf8")
+    .then(JSON.parse)
+    .catch(() => ({}));
+  const audio = files.filter((file) => BASE_TYPES[path.extname(file).toLowerCase()]);
+  for (const file of audio) {
+    const info = meta[file] ?? {};
+    const storedName = `base-${file}`;
+    await fsPromises.copyFile(path.join(dir, file), path.join(UPLOADS, storedName));
+    // Pochette : une image du même nom que le morceau (blues.mp3 → blues.jpg / .png / .webp).
+    const stem = path.parse(file).name;
+    const coverFile = files.find((f) => path.parse(f).name === stem && /\.(jpe?g|png|webp)$/i.test(f));
+    const coverName = coverFile ? `base-cover-${coverFile}` : undefined;
+    if (coverFile) await fsPromises.copyFile(path.join(dir, coverFile), path.join(UPLOADS, coverName));
+    const { size } = await fsPromises.stat(path.join(dir, file));
+    await Track.updateOne(
+      { base: true, originalName: file },
+      {
+        $set: {
+          title: String(info.title ?? titleFromFile(file)).slice(0, 120),
+          description: String(info.description ?? "").slice(0, 500),
+          duration: trackDuration(info.duration),
+          storedName,
+          mimeType: BASE_TYPES[path.extname(file).toLowerCase()],
+          size,
+          ...(coverName && { coverName }),
+        },
+        // Image retirée du dossier : la piste revient à la pochette générée.
+        ...(!coverName && { $unset: { coverName: "" } }),
+      },
+      { upsert: true },
+    );
+  }
+  await Track.deleteMany({ base: true, originalName: { $nin: audio } });
+  return audio.length;
 }
 
 export function createApp() {
@@ -281,14 +384,88 @@ export function createApp() {
     }
   });
 
-  /** Retourne une page des pistes appartenant exclusivement à l'utilisateur. */
+  /** Playlist « Morceaux préférés » : mes pistes marquées d'un cœur, la dernière ajoutée en tête. */
+  app.get("/api/tracks/favorites", auth, async (req, res, next) => {
+    try {
+      const user = await User.findById(req.auth.sub).select("favorites");
+      const ids = (user?.favorites ?? []).map(String).reverse();
+      const tracks = await Track.find({ _id: { $in: ids } }).select("-storedName +coverName").lean();
+      // Une piste devenue inaccessible (groupe quitté) disparaît simplement de la playlist.
+      const playable = [];
+      for (const track of tracks) if (await canPlay(req.auth.sub, track.ownerId)) playable.push(track);
+      playable.sort((a, b) => ids.indexOf(String(a._id)) - ids.indexOf(String(b._id)));
+      res.json(playable.map(publicTrack));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /** Ajoute (PUT) ou retire (DELETE) une piste des préférés ; renvoie le profil à jour. */
+  const favorite = (operator) => async (req, res, next) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: "Piste inconnue" });
+      if (operator === "$addToSet") {
+        const track = await Track.findById(req.params.id).select("ownerId");
+        if (!track || !(await canPlay(req.auth.sub, track.ownerId))) {
+          return res.status(404).json({ message: "Piste inconnue" });
+        }
+      }
+      const user = await User.findByIdAndUpdate(req.auth.sub, { [operator]: { favorites: req.params.id } }, { new: true });
+      if (!user) return res.status(401).json({ message: "Authentification requise" });
+      res.json(user.toPublic());
+    } catch (error) {
+      next(error);
+    }
+  };
+  app.put("/api/tracks/:id/favorite", auth, favorite("$addToSet"));
+  app.delete("/api/tracks/:id/favorite", auth, favorite("$pull"));
+
+  /** Catalogue commun : les pistes de base, en lecture seule, ouvertes à tous les joueurs. */
+  app.get("/api/tracks/base", auth, async (req, res, next) => {
+    try {
+      const tracks = await Track.find({ base: true }).sort({ title: 1 }).collation({ locale: "fr" }).select("-storedName +coverName").lean();
+      res.json(tracks.map(publicTrack));
+    } catch (error) {
+      console.error("[tracks] Erreur de lecture du catalogue de base", error);
+      next(error);
+    }
+  });
+
+  /**
+   * Retourne une page des pistes appartenant exclusivement à l'utilisateur.
+   * Paramètres facultatifs : `q` (titre contenant), `sort` (`recent`, `title`, `record`)
+   * et `record` (`with` / `without` : pistes avec ou sans record du joueur).
+   */
   app.get("/api/tracks", auth, async (req, res, next) => {
     try {
-      const page = Math.max(1, Number(req.query.page) || 1);
-      const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 5));
+      const { page, limit, q, sort, record } = trackListOptions(req.query);
       const filter = { ownerId: req.auth.sub };
+      if (q) filter.title = { $regex: q, $options: "i" };
 
-      console.log(`[tracks] Lecture page=${page}, limit=${limit}, user=${req.auth.sub}`);
+      console.log(`[tracks] Lecture page=${page}, limit=${limit}, q=${q}, sort=${sort}, record=${record}, user=${req.auth.sub}`);
+
+      // Meilleur score du joueur par morceau, utile seulement pour trier ou filtrer par record.
+      const best = new Map();
+      if (sort === "record" || record) {
+        const scores = await Score.find({ userId: req.auth.sub }).select("trackId score").lean();
+        for (const s of scores) best.set(String(s.trackId), Math.max(best.get(String(s.trackId)) ?? 0, s.score));
+        if (record) filter._id = { [record === "with" ? "$in" : "$nin"]: [...best.keys()] };
+      }
+
+      // ponytail: le tri par record se fait en mémoire sur toute la bibliothèque du joueur
+      // (quelques centaines de pistes au plus) ; passer à une agrégation $lookup si elle grossit.
+      if (sort === "record") {
+        const all = await Track.find(filter).select("-storedName +coverName").lean();
+        const scoreOf = (t) => best.get(String(t._id)) ?? -1;
+        all.sort((a, b) => scoreOf(b) - scoreOf(a) || b.createdAt - a.createdAt);
+        return res.json({
+          items: all.slice((page - 1) * limit, page * limit).map(publicTrack),
+          page,
+          limit,
+          total: all.length,
+          pages: Math.max(1, Math.ceil(all.length / limit)),
+        });
+      }
 
       // La lecture des pistes et le comptage total sont parallélisés pour réduire la latence.
       // on utilise Promise.all pour exécuter les deux opérations en parallèle. 
@@ -298,10 +475,11 @@ export function createApp() {
         // sont stockés dans les variables items et total.
       const [items, total] = await Promise.all([
         Track.find(filter)
-          .sort({ createdAt: -1 })
+          .sort(sort === "title" ? { title: 1 } : { createdAt: -1 })
+          .collation({ locale: "fr" })
           .skip((page - 1) * limit)
           .limit(limit)
-          .select("-storedName")
+          .select("-storedName +coverName")
           .lean(),
         Track.countDocuments(filter),
       ]);
@@ -311,11 +489,7 @@ export function createApp() {
       // L'identifiant MongoDB (_id) est converti en chaîne de caractères (id) pour être plus lisible 
       // côté frontend.
       // Le champ _id (généré par MongoDB) est supprimé pour éviter de l'exposer dans la réponse JSON.
-      const publicItems = items.map((track) => ({
-        ...track,
-        id: String(track._id),
-        _id: undefined,
-      }));
+      const publicItems = items.map(publicTrack);
 
       console.log(`[tracks] ${publicItems.length} piste(s) envoyée(s) sur ${total}`);
 
@@ -348,21 +522,33 @@ export function createApp() {
   app.post(
     "/api/tracks",
     auth,
-    upload.single("audio"),
+    // Champ `audio` obligatoire ; champ `cover` facultatif (pochette d'album).
+    upload.fields([{ name: "audio", maxCount: 1 }, { name: "cover", maxCount: 1 }]),
     async (req, res, next) => {
+      const audio = req.files?.audio?.[0];
+      const cover = req.files?.cover?.[0];
+      req.file = audio; // le nettoyage plus bas ne connaît que req.file
       try {
-        if (!req.file) {
+        if (!audio) {
           console.warn(`[tracks] Upload sans fichier par ${req.auth.sub}`);
+          await removeUpload(cover?.filename);
           return res.status(400).json({ message: "Fichier audio requis" });
+        }
+        if (cover && cover.size > MAX_COVER_SIZE) {
+          await removeUpload(cover.filename);
+          await removeUpload(audio.filename);
+          return res.status(400).json({ message: COVER_REFUSED });
         }
 
         const track = await Track.create({
           ownerId: req.auth.sub,
-          title: req.body.title || req.file.originalname,
-          originalName: req.file.originalname,
-          storedName: req.file.filename,
-          mimeType: req.file.mimetype,
-          size: req.file.size,
+          title: req.body.title || audio.originalname,
+          originalName: audio.originalname,
+          storedName: audio.filename,
+          coverName: cover?.filename,
+          mimeType: audio.mimetype,
+          size: audio.size,
+          duration: trackDuration(req.body.duration),
         });
 
         console.log(`[tracks] Upload enregistré : ${track.id}`);
@@ -384,10 +570,66 @@ export function createApp() {
             );
           }
         }
+        await removeUpload(cover?.filename);
         next(error);
       }
     },
   );
+
+  /** Pochette d'album d'une piste : mêmes droits que l'audio (propriétaire, groupe, piste de base). */
+  app.get("/api/tracks/:id/cover", auth, async (req, res, next) => {
+    try {
+      const track = await Track.findById(req.params.id).select("+coverName");
+      if (!track?.coverName || !(await canPlay(req.auth.sub, track.ownerId))) {
+        return res.status(404).json({ message: "Pochette inconnue" });
+      }
+      res.set("Cache-Control", "private, max-age=86400");
+      res.sendFile(path.join(UPLOADS, track.coverName), (error) => {
+        if (error && !res.headersSent) next(error);
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /** Ajoute ou remplace la pochette d'une de mes pistes (multipart, champ `cover`). */
+  app.put("/api/tracks/:id/cover", auth, upload.single("cover"), async (req, res, next) => {
+    const cover = req.file;
+    try {
+      if (!cover || cover.size > MAX_COVER_SIZE) {
+        await removeUpload(cover?.filename);
+        return res.status(400).json({ message: COVER_REFUSED });
+      }
+      const track = await Track.findOne({ _id: req.params.id, ownerId: req.auth.sub }).select("+coverName");
+      if (!track) {
+        await removeUpload(cover.filename);
+        return res.status(404).json({ message: "Piste inconnue" });
+      }
+      const previous = track.coverName;
+      track.coverName = cover.filename;
+      await track.save();
+      await removeUpload(previous);
+      res.json(track.toPublic());
+    } catch (error) {
+      await removeUpload(cover?.filename);
+      next(error);
+    }
+  });
+
+  /** Retire la pochette d'une de mes pistes (retour à la pochette générée). */
+  app.delete("/api/tracks/:id/cover", auth, async (req, res, next) => {
+    try {
+      const track = await Track.findOne({ _id: req.params.id, ownerId: req.auth.sub }).select("+coverName");
+      if (!track) return res.status(404).json({ message: "Piste inconnue" });
+      const previous = track.coverName;
+      track.coverName = undefined;
+      await track.save();
+      await removeUpload(previous);
+      res.json(track.toPublic());
+    } catch (error) {
+      next(error);
+    }
+  });
 
   /** Envoie le contenu binaire d'une piste à son propriétaire ou à un membre d'un de ses groupes. */
   app.get("/api/tracks/:id/audio", auth, async (req, res, next) => {
@@ -470,7 +712,7 @@ export function createApp() {
       const track = await Track.findOneAndDelete({
         _id: req.params.id,
         ownerId: req.auth.sub,
-      }).select("+storedName");
+      }).select("+storedName +coverName");
 
       if (!track) {
         console.warn(`[tracks] Suppression impossible : ${req.params.id}`);
@@ -479,6 +721,7 @@ export function createApp() {
 
       // Les records de ce morceau disparaissent avec lui : le classement ne compte que des morceaux existants.
       await Score.deleteMany({ trackId: track._id });
+      await removeUpload(track.coverName);
 
       const audioPath = path.join(UPLOADS, track.storedName);
       try {
@@ -991,7 +1234,8 @@ export function createApp() {
 
     if (
       error instanceof multer.MulterError ||
-      error?.message === "Format audio non accepté"
+      error?.message === "Format audio non accepté" ||
+      error?.message === COVER_REFUSED
     ) {
       return res.status(400).json({ message: error.message });
     }

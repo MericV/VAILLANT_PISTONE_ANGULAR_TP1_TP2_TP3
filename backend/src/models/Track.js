@@ -7,19 +7,27 @@ import mongoose from "mongoose";
  */
 const schema = new mongoose.Schema(
   {
+    // Absent pour une piste de base (catalogue commun importé au démarrage depuis pistes-de-base/).
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required() {
+        return !this.base;
+      },
       index: true,
     },
+    base: { type: Boolean, default: false, index: true },
     title: { type: String, required: true, trim: true, maxlength: 120 },
     // Texte libre ajouté après l'import (notes de travail, tonalité, tempo…).
     description: { type: String, trim: true, maxlength: 500, default: "" },
     originalName: { type: String, required: true },
     storedName: { type: String, required: true, select: false },
+    // Pochette d'album facultative (image dans les uploads), servie par GET /api/tracks/:id/cover.
+    coverName: { type: String, select: false },
     mimeType: { type: String, required: true },
     size: { type: Number, required: true, min: 0 },
+    // Durée en secondes, mesurée par le navigateur à l'import (absente des pistes plus anciennes).
+    duration: { type: Number, min: 0, max: 7200 },
   },
   { timestamps: true },
 );
@@ -35,12 +43,15 @@ schema.methods.toPublic = function () {
   console.debug(`[track-model] Préparation de la piste publique ${this.id}`);
   return {
     id: this.id,
-    ownerId: String(this.ownerId),
+    ownerId: this.ownerId ? String(this.ownerId) : null,
+    base: this.base,
     title: this.title,
     description: this.description,
     originalName: this.originalName,
     mimeType: this.mimeType,
     size: this.size,
+    duration: this.duration ?? null,
+    cover: Boolean(this.coverName),
     createdAt: this.createdAt,
   };
 };

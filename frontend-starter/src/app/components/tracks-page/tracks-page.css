@@ -1,40 +1,97 @@
 :host { display: block; }
+/* Place pour le lecteur flottant en bas de l'écran. */
+.library.with-player { padding-bottom: 6rem; }
 
-/* Bandeau : six bandes verticales colorées, une par artiste, photo détourée en bas. */
-.artists-hero { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-height: 380px; overflow: hidden; margin-bottom: 1.5rem; padding: 0 2rem 1.8rem; color: #f4f6f8; background: var(--ink); border-radius: 14px; }
+/* Bandeau : six bandes verticales colorées, une par artiste, photo détourée en bas. Compact, sans texte par-dessus. */
+.artists-hero { position: relative; min-height: 250px; margin-bottom: 2rem; overflow: hidden; background: var(--ink); border: 1px solid var(--glass-edge); border-radius: var(--radius); box-shadow: var(--glass-shadow); }
 .artists { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(6, 1fr); margin: 0; padding: 0; list-style: none; }
 .artists li {
-  display: flex; justify-content: center; padding-top: 1.1rem;
-  background: var(--photo) center bottom / auto 82% no-repeat, var(--panel);
+  display: flex; justify-content: center; padding-top: 0.7rem;
+  background: var(--photo) center bottom / auto 78% no-repeat, var(--panel);
 }
-.artists span { color: var(--label, #1b1f2a); font-size: 1.35rem; font-weight: 800; font-family: var(--font-display); }
-/* Voile sombre en bas pour que le titre reste lisible au-dessus des photos. */
-.artists-hero::after { content: ''; position: absolute; inset: auto 0 0; height: 55%; background: linear-gradient(transparent, var(--ink) 85%); pointer-events: none; }
-.artists-hero h1, .artists-hero p { position: relative; z-index: 1; }
-.artists-hero p { max-width: 42ch; color: #c3cad5; }
+.artists span { color: var(--label, #1b1f2a); font-size: 1rem; font-weight: 800; font-family: var(--font-display); }
+/* Titre posé sur le bas du bandeau, sans fond : une ombre portée suffit à le lire sur les photos. */
+.hero-bar { position: absolute; z-index: 1; inset: auto 1.5rem 1rem; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.3rem 1.5rem; color: #fff; text-shadow: 0 2px 4px rgb(0 0 0 / 0.85), 0 0 18px rgb(0 0 0 / 0.7); pointer-events: none; }
+.hero-bar h1 { font-size: clamp(1.4rem, 3vw, 2rem); }
+.hero-bar p { margin: 0; font-weight: 600; text-align: right; }
 
-.layout { display: grid; grid-template-columns: minmax(260px, 1fr) 2.2fr; gap: 1.5rem; align-items: start; }
-.upload { position: sticky; top: 1rem; }
+/* Étagères façon bibliothèque musicale : titre de section puis pochettes. */
+.shelf { margin-bottom: 2.5rem; }
+.shelf h2 { margin-bottom: 1rem; font-size: clamp(1.3rem, 2.4vw, 1.7rem); }
+.chevron { color: var(--muted); }
+.shelf-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+.shelf-head h2 { margin: 0 auto 0 0; }
+.count { margin-left: 0.35rem; padding: 0.05rem 0.5rem; color: var(--muted); font-family: var(--font-body); font-size: 0.85rem; font-weight: 600; vertical-align: middle; background: var(--surface-alt); border-radius: 999px; }
+button.import:not([class*='mat-']) { border-radius: 999px; }
 
-.tracklist { padding: 1.25rem 1.5rem 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
-.tracklist-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
-.count { margin-left: 0.35rem; padding: 0.05rem 0.5rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; background: var(--surface-alt); border-radius: 999px; }
-.status { color: var(--muted); }
-.tracks { margin: 0; padding: 0; list-style: none; }
-.tracks li + li { border-top: 1px solid var(--border); }
-.empty { padding: 2rem 0; color: var(--muted); text-align: center; }
+/* Rangées défilantes horizontalement, alignées sur des crans (scroll-snap). */
+.row { display: grid; grid-auto-flow: column; gap: 2.5rem; margin: 0; padding: 0.4rem var(--bleed) 1rem; scroll-padding-inline: var(--bleed); overflow-x: auto; list-style: none; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+.row li { scroll-snap-align: start; }
+/* Plus de barre de défilement visible : on navigue aux flèches, à la molette ou au doigt. */
+.row { scrollbar-width: none; }
+.row::-webkit-scrollbar { display: none; }
 
-/* Barre de lecture : en haut, sous l'en-tête, et collée en haut de l'écran pendant le défilement. */
-.transport { position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: center; gap: 1rem; margin: -2rem 0 1.25rem; padding: 0.75rem 1.25rem; background: var(--surface); border: 1px solid var(--border); border-bottom: 2px solid var(--brass); border-radius: 0 0 var(--radius) var(--radius); box-shadow: 0 6px 20px #0000001a; }
-.now { margin: 0; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
-.now b { color: var(--fg); }
+/* Flèches ‹ › façon Apple Music : pastilles de verre posées sur les bords, visibles tant qu'il reste à défiler. */
+/* La rangée déborde jusqu'aux deux bords de l'écran (--bleed = marge entre le contenu et le bord) :
+   au repos la 1ʳᵉ pochette reste alignée sur le texte, en défilant les pochettes filent jusqu'au bord. */
+.carousel { --bleed: calc((100vw - min(100vw - 2rem, 1088px)) / 2); position: relative; margin-inline: calc(-1 * var(--bleed)); }
+button.nav:not([class*='mat-']) {
+  position: absolute;
+  z-index: 2;
+  top: calc(50% - 2.6rem);
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 5.2rem;
+  padding: 0;
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  background: rgb(30 24 52 / 0.6);
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  transition: opacity var(--fast) var(--ease), background-color var(--fast) var(--ease);
+}
+button.nav:not([class*='mat-']):hover:not(:disabled) { background: rgb(60 48 100 / 0.75); filter: none; }
+button.nav.prev { left: 0.4rem; }
+button.nav.next { right: 0.4rem; }
+.carousel.at-start button.nav.prev, .carousel.at-end button.nav.next { opacity: 0; pointer-events: none; }
+@media (hover: none) { button.nav:not([class*='mat-']) { display: none; } }
+.row { grid-auto-columns: max(10rem, calc((min(100vw - 2rem, 1088px) - 3 * 2.5rem) / 4)); }
 
-@media (max-width: 800px) {
-  .layout { grid-template-columns: 1fr; }
-  .upload { position: static; }
-  .artists-hero { min-height: 300px; padding: 0 1.25rem 1.5rem; }
+/* Barre d'outils : recherche, tri, filtres en pastilles. */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.8rem; margin: 0.75rem 0 1.25rem; }
+.toolbar label { margin: 0; }
+.search { position: relative; flex: 1 1 14rem; display: block; }
+.search svg { position: absolute; left: 0.8rem; top: 50%; width: 1.05rem; height: 1.05rem; transform: translateY(-50%); fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.search input { width: 100%; padding-left: 2.4rem; border-radius: 999px; }
+.sort { display: flex; align-items: center; gap: 0.4rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+select { padding: 0.55rem 0.8rem; font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--input-border); border-radius: 999px; }
+select option { color: var(--fg); background: #1b1638; }
+.chips { display: flex; gap: 0.35rem; }
+button.chip:not([class*='mat-']) { padding: 0.45rem 0.85rem; color: var(--muted); font-weight: 600; background: rgb(255 255 255 / 0.05); border: 1px solid var(--border); border-radius: 999px; box-shadow: none; }
+button.chip:not([class*='mat-']):hover:not(:disabled) { color: var(--fg); filter: none; box-shadow: none; }
+button.chip.on:not([class*='mat-']) { color: var(--fg); background: rgb(143 91 255 / 0.25); border-color: var(--link); box-shadow: 0 0 14px rgb(143 91 255 / 0.35); }
+
+/* Grille de pochettes carrées. */
+.tracks { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: 1.6rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+.empty { grid-column: 1 / -1; padding: 2rem 0; color: var(--muted); text-align: center; }
+button.more:not([class*='mat-']) { display: block; margin: 1.75rem auto 0; padding-inline: 1.6rem; border-radius: 999px; }
+
+/* Panneau d'import : verre centré au-dessus d'un voile flouté. */
+.import-panel { width: min(28rem, 100% - 2rem); padding: 0; color: var(--fg); background: transparent; border: 0; overflow: visible; }
+.import-panel::backdrop { background: rgb(5 2 20 / 0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+button.close:not([class*='mat-']) { position: absolute; z-index: 1; top: 1rem; right: 1rem; width: 2.2rem; height: 2.2rem; padding: 0; color: var(--muted); background: transparent; border: 1px solid rgb(255 255 255 / 0.15); border-radius: 50%; box-shadow: none; }
+button.close:not([class*='mat-']):hover:not(:disabled) { color: var(--fg); background: rgb(255 255 255 / 0.08); box-shadow: none; }
+
+@media (max-width: 640px) {
+  .artists-hero { min-height: 200px; }
   .artists { grid-template-columns: repeat(3, 1fr); }
   .artists li:nth-child(n + 4) { display: none; }
-  .tracklist { padding: 1rem 1rem 0.5rem; }
-  .transport { grid-template-columns: 1fr; gap: 0.4rem; }
+  .hero-bar p { text-align: left; }
+  .row { gap: 1.25rem; grid-auto-columns: 42vw; }
+  .tracks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

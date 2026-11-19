@@ -46,3 +46,51 @@ export function audioFormatLabel(mimeType: string): string {
       return mimeType;
   }
 }
+
+/** Durée lisible « m:ss » (ou « h:mm:ss »), « — » si inconnue. */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (!seconds || !Number.isFinite(seconds)) return '—';
+  const s = Math.round(seconds);
+  const mmss = `${Math.floor((s % 3600) / 60)}:${String(s % 60).padStart(2, '0')}`;
+  return s >= 3600 ? `${Math.floor(s / 3600)}:${mmss.padStart(5, '0')}` : mmss;
+}
+
+/**
+ * Mesure la durée d'un fichier audio dans le navigateur, sans l'envoyer : un élément
+ * <audio> lit seulement ses métadonnées. `null` si le navigateur ne sait pas le lire.
+ */
+export function measureDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    if (typeof Audio === 'undefined' || !URL.createObjectURL) return resolve(null);
+    const url = URL.createObjectURL(file);
+    const audio = new Audio();
+    const done = (value: number | null) => {
+      URL.revokeObjectURL(url);
+      resolve(value);
+    };
+    audio.preload = 'metadata';
+    audio.onloadedmetadata = () => done(Number.isFinite(audio.duration) ? audio.duration : null);
+    audio.onerror = () => done(null);
+    audio.src = url;
+  });
+}
+
+/**
+ * Teinte (0–359) de la pochette générée d'une piste, stable pour un identifiant.
+ * Hachage FNV-1a : deux identifiants presque identiques (ObjectId) donnent des teintes éloignées.
+ */
+export function trackHue(id: string): number {
+  let hash = 2166136261;
+  for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;
+  // Brassage final (MurmurHash3) : sans lui, un seul caractère d'écart ne fait qu'alterner deux teintes.
+  hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
+  hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+  return ((hash ^ (hash >>> 16)) >>> 0) % 360;
+}
+
+/** Pochettes acceptées par le backend : JPEG, PNG ou WebP de 3 Mo au plus. */
+export function validateCover(file: File): string | null {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return 'Pochette refusée : choisissez une image JPEG, PNG ou WebP.';
+  if (file.size > 3 * 1024 * 1024) return 'La pochette ne doit pas dépasser 3 Mo.';
+  return null;
+}

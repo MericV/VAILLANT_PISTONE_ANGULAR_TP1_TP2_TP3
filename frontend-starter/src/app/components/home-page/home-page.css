@@ -11,30 +11,112 @@
   pointer-events: none;
 }
 
-/* Chaque section occupe un écran : la page est assez longue pour dérouler les 150 images. */
-section { min-height: 100vh; display: grid; align-content: center; gap: 1rem; max-width: 34rem; }
-.hero { min-height: calc(100vh - 8rem); max-width: none; }
+/* Chaque section occupe au moins un écran : la page est assez longue pour dérouler les 150 images. */
+section { display: grid; align-content: center; gap: 1rem; }
+.hero { min-height: calc(100vh - 8rem); }
+.screen { min-height: 100vh; padding: 2rem 0; }
 .kicker { margin: 0; color: var(--link); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
-h1 { font-size: clamp(2.6rem, 8vw, 6rem); text-shadow: 0 4px 30px rgb(0 0 0 / 0.6); }
-h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); }
+h1 { font-size: clamp(2.6rem, 8vw, 6rem); line-height: 0.95; text-shadow: 0 4px 30px rgb(0 0 0 / 0.6); }
 .tagline { margin: 0; font-size: 1.25rem; color: var(--fg); }
 .hint { margin-top: 3rem; color: var(--muted); animation: bob 1.8s var(--ease) infinite alternate; }
-.panel p { margin: 0; font-size: 1.1rem; }
-.right { margin-left: auto; }
+.section-title { font-size: clamp(1.8rem, 4vw, 2.8rem); text-shadow: 0 4px 30px rgb(0 0 0 / 0.6); }
 
-.cta {
-  justify-self: start;
-  padding: 0.7rem 1.3rem;
-  color: #fff;
-  font-weight: 700;
-  text-decoration: none;
-  background: var(--cta);
-  border-radius: var(--radius-small);
-  transition: transform var(--fast) var(--ease), filter var(--fast) var(--ease);
+.bento {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas:
+    'play play tracks tracks'
+    'play play rank profile';
+  gap: 1rem;
 }
-.cta:hover { filter: brightness(1.12); }
-.cta:active { transform: scale(0.97); }
+
+/* Tuile : verre dépoli, un orbe de lumière floue (--orb) derrière, qui s'intensifie au survol. */
+.tile, .copy {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+.tile {
+  display: grid;
+  align-content: end;
+  gap: 0.5rem;
+  min-height: 11rem;
+  padding: 1.25rem 1.4rem;
+  color: var(--fg);
+  text-decoration: none;
+  background: var(--glass-sheen), rgb(255 255 255 / 0.05);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  transition: transform var(--fast) var(--ease), border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+}
+.tile::before, .copy::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -30% -20% auto auto;
+  width: 70%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, var(--orb), transparent 65%);
+  filter: blur(30px);
+  opacity: 0.45;
+  transition: opacity var(--fast) var(--ease);
+}
+/* Au survol, le verre se teinte de la couleur de la tuile (ou du panneau) et un halo suit la souris (--mx, --my). */
+.tile::after, .copy::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--orb) 45%, transparent), transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--orb) 22%, transparent), color-mix(in srgb, var(--orb) 8%, transparent));
+  opacity: 0;
+  transition: opacity 250ms var(--ease);
+}
+.tile:hover, .copy:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--orb) 70%, white); box-shadow: var(--glass-shadow), inset 0 0 24px color-mix(in srgb, var(--orb) 25%, transparent), 0 0 40px color-mix(in srgb, var(--orb) 40%, transparent); }
+.tile:hover::before, .copy:hover::before { opacity: 0.9; }
+.tile:hover::after, .tile:focus-visible::after, .copy:hover::after, .copy:focus-within::after { opacity: 1; }
+.tile:hover .tag, .copy:hover .tag { color: #fff; border-color: rgb(255 255 255 / 0.5); }
+.tile:focus-visible { outline: 3px solid var(--orb); outline-offset: 3px; }
+.tile p, .copy p, .copy li { margin: 0; color: #cfd2ea; line-height: 1.6; }
+.tile h3 { font-size: clamp(1.15rem, 2vw, 1.4rem); }
+.tag { justify-self: start; padding: 0.15rem 0.6rem; color: var(--orb); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; background: rgb(255 255 255 / 0.06); border: 1px solid color-mix(in srgb, var(--orb) 40%, transparent); border-radius: 999px; }
+.play { grid-area: play; min-height: 22rem; }
+.play h3 { font-size: clamp(2rem, 4vw, 3rem); }
+.tracks { grid-area: tracks; }
+.rank { grid-area: rank; }
+.profile { grid-area: profile; }
+.go { justify-self: start; margin-top: 0.6rem; padding: 0.7rem 1.3rem; color: #1a1300; font-weight: 800; text-decoration: none; background: linear-gradient(180deg, #fff2b8, var(--orb)); border-radius: 999px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6), 0 0 22px color-mix(in srgb, var(--orb) 50%, transparent); transition: transform var(--fast) var(--ease), filter var(--fast) var(--ease); }
+.go:hover { filter: brightness(1.08); }
+.go:active { transform: scale(0.97); }
+
+/* Sections Boutique et Groupes : un panneau de verre riche en texte, et des aperçus à côté. */
+.feature { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: 2rem; }
+.feature.reverse { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+.feature.reverse .copy { grid-column: 2; }
+.copy { display: grid; gap: 0.9rem; padding: 2rem; transition: transform var(--fast) var(--ease), border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+.copy h2 { font-size: clamp(1.8rem, 3.5vw, 2.6rem); }
+.facts, .steps { display: grid; gap: 0.7rem; margin: 0.3rem 0; padding-left: 1.2rem; }
+.facts li::marker { color: var(--orb); }
+.steps li::marker { color: var(--orb); font-family: var(--font-display); font-weight: 700; }
+.copy b { color: var(--fg); }
+
+/* Aperçus des décors : cartes de verre décalées, comme posées les unes sur les autres. */
+.shots { position: relative; min-height: 22rem; }
+.shots img { position: absolute; width: 72%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--glass-edge); border-radius: var(--radius-small); box-shadow: 0 20px 50px rgb(0 0 0 / 0.5), 0 0 30px color-mix(in srgb, var(--orb) 25%, transparent); }
+.shots img:nth-child(1) { top: 0; left: 0; transform: rotate(-4deg); }
+.shots img:nth-child(2) { top: 30%; right: 0; transform: rotate(3deg); }
+.shots img:nth-child(3) { bottom: 0; left: 12%; transform: rotate(-1deg); }
 
 @keyframes bob { to { transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { .hint { animation: none; } }
-@media (max-width: 640px) { .right { margin-left: 0; } }
+@media (max-width: 760px) {
+  .bento { grid-template-columns: 1fr 1fr; grid-template-areas: 'play play' 'tracks tracks' 'rank profile'; }
+  .play { min-height: 16rem; }
+  .feature, .feature.reverse { grid-template-columns: 1fr; }
+  .feature.reverse .copy { grid-column: auto; }
+  .shots { min-height: 14rem; }
+}

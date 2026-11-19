@@ -76,7 +76,7 @@ describe('TrackUploadComponent', () => {
     expect(text()).toContain('42 %');
     expect(button.disabled).toBe(true);
     expect(component.title.disabled).toBe(true);
-    expect(service.upload).toHaveBeenCalledWith(expect.any(File), 'Practice');
+    expect(service.upload).toHaveBeenCalledWith(expect.any(File), 'Practice', null, null);
   });
 
   it('empêche une seconde soumission pendant l’envoi', () => {
@@ -102,7 +102,7 @@ describe('TrackUploadComponent', () => {
     expect(component.state()).toEqual({ status: 'success', track });
     expect(uploaded).toHaveBeenCalledWith(track);
     expect(component.title.value).toBe('');
-    expect(component.file()).toBeNull();
+    expect(component.files()).toEqual([]);
     expect(text()).toContain('Piste « Practice » envoyée.');
   });
 
@@ -117,5 +117,42 @@ describe('TrackUploadComponent', () => {
     expect(component.state()).toEqual({ status: 'error', message: 'Format audio non accepté' });
     expect(component.title.enabled).toBe(true);
     expect(text()).toContain('Format audio non accepté');
+  });
+
+  it('envoie plusieurs fichiers l’un après l’autre, chacun sous son nom', async () => {
+    const uploaded = vi.fn();
+    component.uploaded.subscribe(uploaded);
+    const second = new Subject<UploadEvent>();
+    service.upload.mockReturnValueOnce(events$.asObservable()).mockReturnValueOnce(second.asObservable());
+    component.choose({ target: { files: [mp3(), new File(['b'], 'funk.wav', { type: 'audio/wav' })] } } as unknown as Event);
+    component.title.setValue('ignoré'); // un titre ne vaut que pour un fichier seul
+    component.upload();
+
+    expect(service.upload).toHaveBeenCalledTimes(1);
+    expect(service.upload).toHaveBeenLastCalledWith(expect.any(File), 'practice.mp3', null, null);
+    expect(component.current()).toBe(1);
+
+    events$.next({ type: 'done', track });
+    expect(service.upload).toHaveBeenLastCalledWith(expect.any(File), 'funk.wav', null, null);
+    expect(component.current()).toBe(2);
+
+    second.next({ type: 'done', track: { ...track, title: 'funk.wav' } });
+    await fixture.whenStable();
+
+    expect(uploaded).toHaveBeenCalledTimes(2);
+    expect(component.state()).toEqual({ status: 'success', track: { ...track, title: 'funk.wav' } });
+    expect(component.files()).toEqual([]);
+  });
+
+  it('joint la pochette choisie à un fichier seul, et refuse une image invalide', () => {
+    select(mp3());
+    (component as unknown as { chooseCover(e: Event): void }).chooseCover({ target: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })], value: '' } } as unknown as Event);
+    expect(component.errorMessage()).toContain('Pochette refusée');
+
+    const art = new File(['img'], 'pochette.jpg', { type: 'image/jpeg' });
+    (component as unknown as { chooseCover(e: Event): void }).chooseCover({ target: { files: [art], value: '' } } as unknown as Event);
+    component.upload();
+
+    expect(service.upload).toHaveBeenCalledWith(expect.any(File), 'practice.mp3', null, art);
   });
 });
