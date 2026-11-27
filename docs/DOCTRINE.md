@@ -3,7 +3,7 @@
 Règles de travail tirées des TP1 à TP3. Elles s'appliquent à toute nouvelle mission, qu'elle soit
 réalisée par le binôme ou par un assistant IA. En cas de conflit, l'ordre de priorité est :
 
-1. le sujet de la mission (`SUJET_ETUDIANT_TP*.md`) ;
+1. le sujet de la mission (`docs/sujets/SUJET_ETUDIANT_TP*.md`) ;
 2. le contrat HTTP (`API_CONTRACT.md`) ;
 3. les consignes projet (`frontend-starter/AGENTS.md`, `CLAUDE.md`, `best-practices.md`, idem côté `backend/`) ;
 4. le skill officiel Angular `.claude/skills/angular-developer` (installé avec `npx skills add https://github.com/angular/skills`) ;
@@ -20,7 +20,7 @@ réalisée par le binôme ou par un assistant IA. En cas de conflit, l'ordre de 
 5. **Tester** : écrire ou adapter les tests, lancer `npm test`, vérifier qu'un test casse si on casse le code.
 6. **Construire** : `npm run build` sans erreur.
 7. **Vérifier dans le navigateur** (onglet Network, filtre Fetch/XHR) et capturer les preuves.
-8. **Documenter** dans `RAPPORT_IA_MODELE.md` : objectif, fichiers modifiés, tests, preuves, limites.
+8. **Documenter** dans `docs/RAPPORT_IA_MODELE.md` : objectif, fichiers modifiés, tests, preuves, limites.
 
 ## 2. Architecture
 
@@ -148,9 +148,9 @@ Séparation page / présentation :
 - [ ] États chargement / succès / erreur / vide visibles, double soumission impossible.
 - [ ] `npm test` vert (frontend) et `npm test` vert (backend) ; nouveaux tests pertinents ajoutés.
 - [ ] `npm run build` sans erreur.
-- [ ] Vérification Network faite, preuves dans `preuves/tpN/` sans JWT ni mot de passe visibles.
+- [ ] Vérification Network faite, preuves dans `docs/preuves/tpN/` sans JWT ni mot de passe visibles.
 - [ ] Console du navigateur sans erreur inattendue ni donnée sensible.
-- [ ] `RAPPORT_IA_MODELE.md` complété (fichiers, tests, preuves, réponses aux questions, limites).
+- [ ] `docs/RAPPORT_IA_MODELE.md` complété (fichiers, tests, preuves, réponses aux questions, limites).
 - [ ] Chaque membre du binôme sait expliquer le code et les tests.
 
 ## 9. Commandes

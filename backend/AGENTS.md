@@ -1,7 +1,7 @@
 # Instructions pour les assistants de programmation
 
 Ce dossier contient une API Node.js/Express avec Mongoose et MongoDB. Lis
-`best-practices.md`, `../API_CONTRACT.md` et `../ATLAS_SETUP.md` avant toute
+`best-practices.md`, `../API_CONTRACT.md` et `../docs/ATLAS_SETUP.md` avant toute
 modification.
 
 - Préserver les routes, les méthodes HTTP et les formats définis dans `API_CONTRACT.md`.

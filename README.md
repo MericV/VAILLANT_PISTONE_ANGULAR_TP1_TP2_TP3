@@ -20,7 +20,7 @@ Festival, joué sur ses propres morceaux.
 | TP3 | Suppression avec confirmation, barre de progression d'upload, tests frontend et backend |
 
 Le détail de chaque mission, les preuves Network et l'usage de l'IA sont dans
-[RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md).
+[docs/RAPPORT_IA_MODELE.md](docs/RAPPORT_IA_MODELE.md).
 
 ### Rockstar Academy (projet suivant, hors TP1 à TP3)
 
@@ -45,7 +45,7 @@ Touches de jeu : `A`/`Q`, `Z`/`W`, `E`, `R`, `T` pour les couloirs (AZERTY ou QW
 ## Installation
 
 Prérequis : Node.js 22 ou plus récent (testé avec la v26), un cluster MongoDB Atlas
-(voir [ATLAS_SETUP.md](ATLAS_SETUP.md)) et Git.
+(voir [docs/ATLAS_SETUP.md](docs/ATLAS_SETUP.md)) et Git.
 
 ### 1. Backend
 
@@ -88,17 +88,24 @@ backend/              API Express (src/app.js), état des parties en direct (src
 frontend-starter/     Application Angular
   src/app/components/   pages (tracks, game, leaderboard, shop, groups, live…) et composants
   src/app/shared/       services HTTP, intercepteur, guard, modèles, pipes
-preuves/              Captures Network des TP1 à TP3
-ajout-specification/  Spécifications d'évolutions possibles
+docs/
+  RAPPORT_IA_MODELE.md  rapport d'usage de l'IA (à rendre)
+  DOCTRINE.md           règles d'architecture, de sécurité et de tests
+  CREDITS.md            crédits des modèles 3D et textures
+  sujets/               sujets des TP1 à TP3
+  preuves/              captures Network des TP1 à TP3
+  evolutions/           spécifications d'évolutions possibles
+  ATLAS_SETUP.md        mise en place de MongoDB Atlas
+  SCHEMA_FLUX_TP1.md    trajet d'une requête de connexion
 ```
 
 ## Documents
 
-- [SUJET_ETUDIANT_TP1.md](SUJET_ETUDIANT_TP1.md), [TP2](SUJET_ETUDIANT_TP2.md), [TP3](SUJET_ETUDIANT_TP3.md) : sujets.
+- [TP1](docs/sujets/SUJET_ETUDIANT_TP1.md), [TP2](docs/sujets/SUJET_ETUDIANT_TP2.md), [TP3](docs/sujets/SUJET_ETUDIANT_TP3.md) : sujets.
 - [API_CONTRACT.md](API_CONTRACT.md) : routes, authentification et formats échangés.
-- [SCHEMA_FLUX_TP1.md](SCHEMA_FLUX_TP1.md) : trajet d'une requête de connexion.
-- [RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md) : rapport d'usage de l'IA, mission par mission.
-- [DOCTRINE.md](DOCTRINE.md) : règles d'architecture et de qualité suivies par le binôme et par l'assistant.
+- [docs/SCHEMA_FLUX_TP1.md](docs/SCHEMA_FLUX_TP1.md) : trajet d'une requête de connexion.
+- [docs/RAPPORT_IA_MODELE.md](docs/RAPPORT_IA_MODELE.md) : rapport d'usage de l'IA, mission par mission.
+- [docs/DOCTRINE.md](docs/DOCTRINE.md) : règles d'architecture et de qualité suivies par le binôme et par l'assistant.
 
 ## Sécurité
 
