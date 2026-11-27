@@ -3,7 +3,7 @@
 Projet Angular 22 / Express / MongoDB Atlas réalisé dans le cadre des TP1 à TP3
 du M1 MIAGE SIRIS (UE Composants logiciels pour l'entreprise, Programmation Web).
 
-**Binôme :** Meric VAILLANT et Noa PISTONE.
+**Auteur :** Meric VAILLANT.
 
 L'application part du portail « Guitar Practice Cloud » fourni (bibliothèque de morceaux
 personnels) et le prolonge en **Rockstar Academy**, un jeu de rythme inspiré de Fortnite
@@ -89,7 +89,7 @@ frontend-starter/     Application Angular
   src/app/components/   pages (tracks, game, leaderboard, shop, groups, live…) et composants
   src/app/shared/       services HTTP, intercepteur, guard, modèles, pipes
 docs/
-  RAPPORT_IA_MODELE.md  rapport d'usage de l'IA (à rendre)
+  RAPPORT_IA_MODELE.md  rapport : projet, fonctionnalités, usage de l'IA (à rendre)
   DOCTRINE.md           règles d'architecture, de sécurité et de tests
   CREDITS.md            crédits des modèles 3D et textures
   sujets/               sujets des TP1 à TP3
@@ -104,8 +104,8 @@ docs/
 - [TP1](docs/sujets/SUJET_ETUDIANT_TP1.md), [TP2](docs/sujets/SUJET_ETUDIANT_TP2.md), [TP3](docs/sujets/SUJET_ETUDIANT_TP3.md) : sujets.
 - [API_CONTRACT.md](API_CONTRACT.md) : routes, authentification et formats échangés.
 - [docs/SCHEMA_FLUX_TP1.md](docs/SCHEMA_FLUX_TP1.md) : trajet d'une requête de connexion.
-- [docs/RAPPORT_IA_MODELE.md](docs/RAPPORT_IA_MODELE.md) : rapport d'usage de l'IA, mission par mission.
-- [docs/DOCTRINE.md](docs/DOCTRINE.md) : règles d'architecture et de qualité suivies par le binôme et par l'assistant.
+- [docs/RAPPORT_IA_MODELE.md](docs/RAPPORT_IA_MODELE.md) : présentation du projet, de ses fonctionnalités et de l'usage de l'IA, mission par mission.
+- [docs/DOCTRINE.md](docs/DOCTRINE.md) : règles d'architecture et de qualité suivies par l'auteur et par l'assistant.
 
 ## Sécurité
 
