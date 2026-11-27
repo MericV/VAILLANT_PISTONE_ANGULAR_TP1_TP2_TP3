@@ -74,7 +74,7 @@ try {
 }
 
 const server = createApp().listen(port, () => {
-  console.log(`Guitar Practice Cloud API: http://localhost:${port}/api/health`);
+  console.log(`Rockstar Academy API: http://localhost:${port}/api/health`);
 });
 
 // Le callback `error` couvre notamment un port déjà utilisé.

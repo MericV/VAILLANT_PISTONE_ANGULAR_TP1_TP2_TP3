@@ -16,12 +16,21 @@ export class AppComponent {
   /** Position de la bulle de verre de la barre, relative à la navigation. */
   protected readonly bubble = signal<{ x: number; y: number; w: number; h: number } | null>(null);
   private readonly nav = viewChild.required<ElementRef<HTMLElement>>('nav');
+  /**
+   * Vrai sur les pages qui ont leur propre décor (Accueil : guitare 3D ; jeu et salon :
+   * scène de concert). Ailleurs, le ciel étoilé animé est affiché ; inutile de l'animer
+   * sous un décor qui le masque entièrement.
+   */
+  protected readonly ownBackground = signal(false);
 
   constructor() {
     // Après chaque navigation (classes « active » posées), la bulle rejoint la page courante.
     this.router.events
-      .pipe(filter((event) => event instanceof NavigationEnd), takeUntilDestroyed())
-      .subscribe(() => requestAnimationFrame(() => this.moveBubble(null)));
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed())
+      .subscribe((event) => {
+        this.ownBackground.set(/^\/(home|game\/|groups\/[^/]+\/live)/.test(event.urlAfterRedirects));
+        requestAnimationFrame(() => this.moveBubble(null));
+      });
     // Après un rechargement de page, seul le jeton est conservé : on relit le profil
     // (avatar, décor, points) dont se servent le lobby, le jeu, la boutique et le profil.
     if (this.auth.token()) this.auth.profile().subscribe({ error: () => undefined });

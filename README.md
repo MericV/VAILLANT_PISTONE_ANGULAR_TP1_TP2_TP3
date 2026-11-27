@@ -1,4 +1,4 @@
-# Guitar Practice Cloud — Guithar Hero
+# Rockstar Academy
 
 Projet Angular 22 / Express / MongoDB Atlas réalisé dans le cadre des TP1 à TP3
 du M1 MIAGE SIRIS (UE Composants logiciels pour l'entreprise, Programmation Web).
@@ -6,7 +6,7 @@ du M1 MIAGE SIRIS (UE Composants logiciels pour l'entreprise, Programmation Web)
 **Binôme :** Meric VAILLANT et Noa PISTONE.
 
 L'application part du portail « Guitar Practice Cloud » fourni (bibliothèque de morceaux
-personnels) et le prolonge en **Guithar Hero**, un jeu de rythme inspiré de Fortnite
+personnels) et le prolonge en **Rockstar Academy**, un jeu de rythme inspiré de Fortnite
 Festival, joué sur ses propres morceaux.
 
 ## Fonctionnalités
@@ -22,7 +22,7 @@ Festival, joué sur ses propres morceaux.
 Le détail de chaque mission, les preuves Network et l'usage de l'IA sont dans
 [RAPPORT_IA_MODELE.md](RAPPORT_IA_MODELE.md).
 
-### Guithar Hero (projet suivant, hors TP1 à TP3)
+### Rockstar Academy (projet suivant, hors TP1 à TP3)
 
 > **À noter :** cette partie ne fait pas partie des TP1 à TP3. Elle prépare le projet
 > suivant. Les pages concernées (`game`, `leaderboard`, `shop`, `groups`, `live`), leurs

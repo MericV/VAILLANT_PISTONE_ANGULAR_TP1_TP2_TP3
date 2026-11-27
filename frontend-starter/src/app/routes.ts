@@ -7,11 +7,12 @@ import { RegisterPageComponent } from './components/register-page/register-page'
 import { TracksPageComponent } from './components/tracks-page/tracks-page';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'lobby' },
+  // L'accueil est public : il n'appelle aucune API. Les tuiles mènent à des pages
+  // protégées, dont le guard renvoie vers /login si le visiteur n'est pas connecté.
+  { path: '', pathMatch: 'full', redirectTo: 'home' },
   {
     path: 'home',
     loadComponent: () => import('./components/home-page/home-page').then((m) => m.HomePageComponent),
-    canActivate: [authGuard],
   },
   // Lobby façon Fortnite : redirige vers le salon de son groupe (créé si besoin).
   { path: 'lobby', canActivate: [authGuard, lobbyGuard], children: [] },

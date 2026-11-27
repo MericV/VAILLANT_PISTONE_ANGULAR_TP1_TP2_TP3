@@ -1,3 +1,18 @@
+<!--
+  Ciel nocturne décoratif : fond noir, étoiles fixes qui scintillent et étoiles filantes.
+  Tout est en CSS (aucune image ni script) ; chaque étoile filante reçoit sa position,
+  son angle, sa durée et son décalage par des variables CSS, d'où un passage irrégulier.
+-->
+@if (!ownBackground()) {
+  <div class="sky" aria-hidden="true">
+    <span class="shooting" style="--x: 85%; --y: 8%;  --len: 1100px; --dur: 11s; --delay: 0s"></span>
+    <span class="shooting" style="--x: 60%; --y: -5%; --len: 900px;  --dur: 14s; --delay: 3.5s"></span>
+    <span class="shooting" style="--x: 105%; --y: 30%; --len: 1300px; --dur: 17s; --delay: 7s"></span>
+    <span class="shooting" style="--x: 40%; --y: 2%;  --len: 800px;  --dur: 13s; --delay: 9.5s"></span>
+    <span class="shooting" style="--x: 95%; --y: 55%; --len: 1000px; --dur: 19s; --delay: 12s"></span>
+  </div>
+}
+
 <header #bar class="topbar" (pointermove)="glow($event, bar)">
   <!-- La bulle de verre glisse sous le lien survolé (ou focalisé), puis revient sur la page courante. -->
   <nav #nav aria-label="Navigation principale" (pointerover)="moveBubble($event.target)" (focusin)="moveBubble($event.target)" (pointerleave)="moveBubble(null)">
